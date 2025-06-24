@@ -4,14 +4,14 @@
 
 ## 🎯 The Mission
 
-This repository documents my journey to create and deploy **5 complete applications** that real people will actually use. No more building in isolation - it's time to ship and get feedback from the world!
+This repository documents my journey to create and deploy **5 complete applications** that real people will actually use. No more building in isolation!
 
 ### 🏆 Challenge Goals:
-- 🎮 **Game** - Build and publish an engaging game
-- 🌐 **Web App** - Create a useful web application  
-- 📱 **Mobile App** - Develop and deploy a mobile application
-- 🤖 **AI Chatbot** - Build an intelligent conversational AI
-- 🔗 **API** - Create and deploy a public API service
+- 🎮 **Game**
+- 🌐 **Web App**
+- 📱 **Mobile App**
+- 🤖 **AI Chatbot**
+- 🔗 **API**
 
 ## 🎥 Live Coding Journey
 
