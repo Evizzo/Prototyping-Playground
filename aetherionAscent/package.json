@@ -1,0 +1,20 @@
+{
+  "name": "aetherion-ascent",
+  "version": "1.0.0",
+  "description": "A visually stunning, physics-based vertical platformer with dynamic lighting and post-processing effects",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "phaser": "^3.80.1"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0"
+  },
+  "keywords": ["game", "platformer", "phaser", "webgl", "indie"],
+  "author": "Me",
+  "license": "MIT"
+} 

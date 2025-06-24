@@ -1,0 +1,682 @@
+import { CONFIG, getRandomParticleColor } from '../config/gameConfig.js';
+import { VoidSystem } from '../systems/VoidSystem.js';
+import { PlatformGenerator } from '../systems/PlatformGenerator.js';
+import { Player } from '../entities/Player.js';
+
+// Import shaders as text
+import bloomShader from '../shaders/bloom.frag?raw';
+import vignetteShader from '../shaders/vignette.frag?raw';
+import distortionShader from '../shaders/distortion.frag?raw';
+
+/**
+ * GameScene - Main Gameplay Scene for Aetherion Ascent
+ * 
+ * This scene orchestrates all game systems and visual effects:
+ * - Light2D pipeline for dynamic lighting and shadows
+ * - Post-processing effects (bloom, vignette, distortion)
+ * - Rising void mechanics and visual spectacle
+ * - Procedural platform generation
+ * - Atmospheric particle systems
+ * - Smooth camera following
+ * 
+ * Phase 1 Focus:
+ * - Establish robust visual foundation
+ * - Ensure all pipelines work flawlessly
+ * - Create stunning atmospheric world
+ * - Prepare for player integration in Phase 2
+ * 
+ * @author Me
+ * @version 1.0.0
+ */
+export class GameScene extends Phaser.Scene {
+  constructor() {
+    super({ key: 'GameScene' });
+    
+    // Core systems
+    this.voidSystem = null;
+    this.platformGenerator = null;
+    this.player = null;
+    
+    // Visual systems
+    this.backgroundLayers = [];
+    this.ambientParticles = null;
+    this.lightManager = null;
+    
+    // Post-processing
+    this.postProcessingPipeline = null;
+    this.shaderUniforms = {};
+    
+    // Camera and world state
+    this.cameraTarget = { x: 0, y: 0 };
+    this.worldBounds = {
+      top: -10000, // Extend upward for infinite climbing
+      bottom: 2000,
+      left: 0,
+      right: CONFIG.GAME.WIDTH
+    };
+    
+    // Debug and performance
+    this.debugMode = false;
+    this.performanceMetrics = {
+      platformCount: 0,
+      particleCount: 0,
+      lightCount: 0
+    };
+  }
+
+  /**
+   * Preload assets and shaders
+   */
+  preload() {
+    console.log('🔄 Loading Aetherion Ascent assets...');
+    
+    // Since we're creating textures procedurally, we don't need external assets
+    // This is placeholder for future asset loading
+    
+    this.load.on('progress', (value) => {
+      console.log(`📦 Loading progress: ${Math.round(value * 100)}%`);
+    });
+  }
+
+  /**
+   * Initialize the game world and all systems
+   */
+  create() {
+    console.log('🌟 Creating mystical world of Aetherion Ascent...');
+    
+    // Create basic textures first (needed by other systems)
+    this.createBasicTextures();
+    
+    // Setup rendering pipelines
+    this.setupLightingPipeline();
+    this.setupPostProcessingPipeline();
+    
+    // Create world environment
+    this.createBackground();
+    this.createAmbientParticles();
+    
+    // Initialize core game systems
+    this.initializeCoreSystems();
+    
+    // Setup camera behavior
+    this.setupCamera();
+    
+    // Setup world physics bounds
+    this.setupWorldBounds();
+    
+    // Initialize debug systems if needed
+    this.setupDebugSystems();
+    
+    // Set initial camera target (center of starting platform)
+    this.cameraTarget.x = CONFIG.GAME.WIDTH / 2;
+    this.cameraTarget.y = CONFIG.GAME.HEIGHT - 100;
+    
+    // Wait for systems to be ready, then create player
+    // This ensures platforms are created before setting up collisions
+    this.time.delayedCall(100, () => {
+      this.createPlayer();
+    });
+    
+    console.log('✨ Mystical world created successfully!');
+    this.logSystemStatus();
+  }
+
+  /**
+   * Create basic textures needed by various systems
+   */
+  createBasicTextures() {
+    console.log('🎨 Creating basic textures...');
+    
+    // Create simple particle texture for effects
+    const size = 8;
+    const texture = this.add.graphics();
+    
+    // Create glowing particle
+    texture.fillStyle(0xffffff, 1.0);
+    texture.fillCircle(size / 2, size / 2, size / 2);
+    
+    // Add glow
+    texture.fillStyle(0xffffff, 0.3);
+    texture.fillCircle(size / 2, size / 2, size);
+    
+    texture.generateTexture('particle', size * 2, size * 2);
+    texture.destroy();
+    
+    // Create player texture - glowing hero character
+    const playerGfx = this.add.graphics();
+    
+    // Main player body (rectangle with rounded corners)
+    playerGfx.fillStyle(CONFIG.LIGHTING.PLAYER_LIGHT_COLOR, 1.0);
+    playerGfx.fillRoundedRect(2, 2, 20, 28, 4);
+    
+    // Inner glow
+    playerGfx.fillStyle(0xffffff, 0.8);
+    playerGfx.fillRoundedRect(6, 6, 12, 20, 2);
+    
+    // Eyes or core light
+    playerGfx.fillStyle(0xffffff, 1.0);
+    playerGfx.fillCircle(8, 12, 1);
+    playerGfx.fillCircle(16, 12, 1);
+    
+    playerGfx.generateTexture('player', 24, 32);
+    playerGfx.destroy();
+    
+    console.log('✅ Basic textures created');
+  }
+
+  /**
+   * Create and initialize the player character
+   */
+  createPlayer() {
+    // Create player at center of starting platform
+    const startX = CONFIG.GAME.WIDTH / 2;
+    const startY = CONFIG.GAME.HEIGHT - 150; // Above starting platform
+    
+    this.player = new Player(this, startX, startY);
+    
+    // Set player as camera target
+    this.cameraTarget = this.player;
+    
+    // Setup physics collisions between player and platform GROUP
+    // The platform group is stored in this.platformGroup by the generator
+    if (this.platformGroup) {
+      this.physics.add.collider(this.player, this.platformGroup);
+      console.log('✅ Player collision set up with platform group');
+    } else {
+      console.warn('⚠️ Platform group not found - will be created by generator');
+    }
+    
+    console.log('🦸 Player character created and ready for adventure!');
+  }
+
+  /**
+   * Setup Phaser's Light2D pipeline for dynamic lighting
+   */
+  setupLightingPipeline() {
+    console.log('💡 Initializing Light2D pipeline...');
+    
+    // Enable lights manager
+    this.lights.enable();
+    
+    // Set ambient lighting - correct Phaser 3 API
+    this.lights.setAmbientColor(CONFIG.LIGHTING.AMBIENT_COLOR);
+    this.lights.ambientIntensity = CONFIG.LIGHTING.AMBIENT_INTENSITY;
+    
+    // Create light manager for tracking and optimization
+    this.lightManager = {
+      activeLights: [],
+      culledLights: [],
+      
+      addLight: (light) => {
+        this.lightManager.activeLights.push(light);
+        return light;
+      },
+      
+      removeLight: (light) => {
+        const index = this.lightManager.activeLights.indexOf(light);
+        if (index !== -1) {
+          this.lightManager.activeLights.splice(index, 1);
+        }
+        this.lights.removeLight(light);
+      },
+      
+      updateLightCulling: (cameraY) => {
+        // Cull lights that are too far from camera for performance
+        const cullDistance = CONFIG.PERFORMANCE.LIGHT_CULLING_DISTANCE;
+        
+        this.lightManager.activeLights.forEach(light => {
+          const distance = Math.abs(light.y - cameraY);
+          light.visible = distance < cullDistance;
+        });
+      }
+    };
+    
+    console.log('✅ Light2D pipeline initialized');
+  }
+
+  /**
+   * Setup post-processing shader pipeline
+   */
+  setupPostProcessingPipeline() {
+    console.log('🎨 Setting up post-processing pipeline...');
+    
+    try {
+      // Create shader programs
+      this.createShaderPrograms();
+      
+      // Initialize shader uniforms
+      this.initializeShaderUniforms();
+      
+      console.log('✅ Post-processing pipeline ready');
+      
+    } catch (error) {
+      console.warn('⚠️ Post-processing setup failed, falling back to basic rendering:', error);
+      this.postProcessingPipeline = null;
+    }
+  }
+
+  /**
+   * Create and compile shader programs
+   */
+  createShaderPrograms() {
+    const renderer = this.sys.game.renderer;
+    
+    if (renderer.type !== Phaser.WEBGL) {
+      throw new Error('WebGL required for shaders');
+    }
+    
+    // Note: In Phase 1, we're setting up the infrastructure
+    // The actual shader compilation will be implemented when Phaser's
+    // shader API is fully set up. For now, we create the structure.
+    
+    this.shaderPrograms = {
+      bloom: {
+        source: bloomShader,
+        uniforms: ['uTime', 'uResolution', 'uBloomStrength', 'uBloomRadius', 'uBloomThreshold']
+      },
+      vignette: {
+        source: vignetteShader,
+        uniforms: ['uTime', 'uResolution', 'uVignetteStrength', 'uVignetteSize']
+      },
+      distortion: {
+        source: distortionShader,
+        uniforms: ['uTime', 'uResolution', 'uDistortionStrength', 'uDistortionCenter', 'uDistortionRadius']
+      }
+    };
+  }
+
+  /**
+   * Initialize shader uniform values
+   */
+  initializeShaderUniforms() {
+    this.shaderUniforms = {
+      bloom: {
+        uTime: 0,
+        uResolution: [CONFIG.GAME.WIDTH, CONFIG.GAME.HEIGHT],
+        uBloomStrength: CONFIG.POST_PROCESSING.BLOOM_STRENGTH,
+        uBloomRadius: CONFIG.POST_PROCESSING.BLOOM_RADIUS,
+        uBloomThreshold: CONFIG.POST_PROCESSING.BLOOM_THRESHOLD
+      },
+      vignette: {
+        uTime: 0,
+        uResolution: [CONFIG.GAME.WIDTH, CONFIG.GAME.HEIGHT],
+        uVignetteStrength: CONFIG.POST_PROCESSING.VIGNETTE_STRENGTH,
+        uVignetteSize: CONFIG.POST_PROCESSING.VIGNETTE_SIZE
+      },
+      distortion: {
+        uTime: 0,
+        uResolution: [CONFIG.GAME.WIDTH, CONFIG.GAME.HEIGHT],
+        uDistortionStrength: 0,
+        uDistortionCenter: [0.5, 0.5],
+        uDistortionRadius: 0.3
+      }
+    };
+  }
+
+  /**
+   * Create layered background for depth and atmosphere
+   */
+  createBackground() {
+    console.log('🏛️ Creating mystical background...');
+    
+    // Simplified background to prevent visual glitches
+    const background = this.add.graphics();
+    background.setDepth(-100);
+    
+    // Simple gradient background
+    background.fillGradientStyle(0x1a1a2e, 0x1a1a2e, 0x0f0f1a, 0x0f0f1a, 1.0);
+    background.fillRect(0, 0, CONFIG.GAME.WIDTH, CONFIG.GAME.HEIGHT);
+    
+    // Add mystical architectural elements
+    this.createBackgroundArchitecture();
+    
+    this.backgroundLayers.push(background);
+  }
+
+  /**
+   * Create background architectural elements for depth
+   */
+  createBackgroundArchitecture() {
+    // Ancient pillars and ruins in the background
+    for (let i = 0; i < 5; i++) {
+      const pillar = this.add.graphics();
+      pillar.setDepth(-90 + i);
+      
+      const x = (CONFIG.GAME.WIDTH / 6) * (i + 1);
+      const height = Phaser.Math.Between(300, 600);
+      const width = 20 + (i * 5); // Parallax effect through width variation
+      
+      // Create pillar with mystical details
+      pillar.fillStyle(0x2a2a4a, 0.3 + (i * 0.1));
+      pillar.fillRect(x - width/2, CONFIG.GAME.HEIGHT - height, width, height);
+      
+      // Add glowing runes
+      pillar.fillStyle(0x64ffda, 0.2);
+      for (let j = 0; j < 3; j++) {
+        const runeY = CONFIG.GAME.HEIGHT - height + (j * height / 4) + 50;
+        pillar.fillCircle(x, runeY, 3);
+      }
+      
+      this.backgroundLayers.push(pillar);
+    }
+  }
+
+  /**
+   * Create ambient particle system for atmosphere - DISABLED FOR PHASE 1
+   */
+  createAmbientParticles() {
+    console.log('✨ Ambient particles disabled for Phase 1 stability...');
+    
+    // PHASE 1: COMPLETELY DISABLE PARTICLES TO PREVENT ANY MOVEMENT
+    this.ambientParticles = null;
+    
+    // Particles will be re-enabled in Phase 2 when stability is confirmed
+  }
+
+  /**
+   * Initialize core game systems
+   */
+  initializeCoreSystems() {
+    console.log('⚡ Initializing core game systems...');
+    
+    // Initialize void system first
+    this.voidSystem = new VoidSystem(this);
+    
+    // Initialize platform generator (depends on void system)
+    this.platformGenerator = new PlatformGenerator(this, this.voidSystem);
+    
+    console.log('✅ Core systems online');
+  }
+
+  /**
+   * Setup camera behavior and constraints
+   */
+  setupCamera() {
+    console.log('📹 Configuring camera system...');
+    
+    // Set world bounds for camera
+    this.cameras.main.setBounds(
+      this.worldBounds.left,
+      this.worldBounds.top,
+      this.worldBounds.right - this.worldBounds.left,
+      this.worldBounds.bottom - this.worldBounds.top
+    );
+    
+    // Set initial camera position
+    this.cameras.main.centerOn(this.cameraTarget.x, this.cameraTarget.y);
+    
+    // Camera will smoothly follow the target (player in Phase 2)
+    this.cameraFollowTarget = null; // Will be set to player in Phase 2
+  }
+
+  /**
+   * Setup world physics bounds
+   */
+  setupWorldBounds() {
+    // Set physics world bounds
+    this.physics.world.setBounds(
+      this.worldBounds.left,
+      this.worldBounds.top,
+      this.worldBounds.right - this.worldBounds.left,
+      this.worldBounds.bottom - this.worldBounds.top
+    );
+  }
+
+  /**
+   * Setup debug systems for development
+   */
+  setupDebugSystems() {
+    // Enable debug mode with F1 key
+    this.input.keyboard.on('keydown-F1', () => {
+      this.debugMode = !this.debugMode;
+      console.log(`🔧 Debug mode: ${this.debugMode ? 'ON' : 'OFF'}`);
+      
+      if (this.debugMode && !this.debugText) {
+        this.createDebugDisplay();
+      } else if (!this.debugMode && this.debugText) {
+        this.debugText.destroy();
+        this.debugText = null;
+      }
+    });
+  }
+
+  /**
+   * Create debug information display
+   */
+  createDebugDisplay() {
+    this.debugText = this.add.text(10, 10, '', {
+      fontFamily: 'monospace',
+      fontSize: '12px',
+      fill: '#64ffda',
+      backgroundColor: 'rgba(26, 26, 46, 0.8)',
+      padding: { x: 5, y: 5 }
+    });
+    this.debugText.setDepth(1000);
+    this.debugText.setScrollFactor(0); // Fixed to camera
+  }
+
+  /**
+   * Main update loop - orchestrates all systems
+   * @param {number} time - Total elapsed time
+   * @param {number} delta - Time since last frame
+   */
+  update(time, delta) {
+    const deltaSeconds = delta / 1000;
+    
+    // Update shader time uniforms
+    this.updateShaderUniforms(time);
+    
+    // Update camera movement
+    this.updateCamera(deltaSeconds);
+    
+    // Update core systems
+    this.updateCoreSystems(deltaSeconds);
+    
+    // Update visual effects
+    this.updateVisualEffects(deltaSeconds);
+    
+    // Update performance metrics
+    this.updatePerformanceMetrics();
+    
+    // Update debug display
+    if (this.debugMode && this.debugText) {
+      this.updateDebugDisplay();
+    }
+  }
+
+  /**
+   * Update shader uniform values
+   * @param {number} time - Current time
+   */
+  updateShaderUniforms(time) {
+    // Update time uniforms for all shaders
+    Object.keys(this.shaderUniforms).forEach(shaderName => {
+      this.shaderUniforms[shaderName].uTime = time * 0.001; // Convert to seconds
+    });
+    
+    // Update distortion strength from void system
+    if (this.voidSystem) {
+      this.shaderUniforms.distortion.uDistortionStrength = this.voidSystem.getDistortionStrength();
+    }
+  }
+
+  /**
+   * Update camera movement and following
+   * @param {number} deltaTime - Time since last frame (seconds)
+   */
+  updateCamera(deltaTime) {
+    if (!this.cameraTarget) return;
+    
+    // Smooth camera following with configurable lerp speed
+    const lerpSpeed = CONFIG.CAMERA.FOLLOW_SPEED * deltaTime;
+    
+    // Calculate target camera position
+    const targetX = this.cameraTarget.x - CONFIG.GAME.WIDTH / 2;
+    const targetY = this.cameraTarget.y - CONFIG.GAME.HEIGHT / 2;
+    
+    // Current camera position
+    const currentX = this.cameras.main.scrollX;
+    const currentY = this.cameras.main.scrollY;
+    
+    // Smooth interpolation to target
+    const newX = Phaser.Math.Linear(currentX, targetX, lerpSpeed);
+    const newY = Phaser.Math.Linear(currentY, targetY, lerpSpeed);
+    
+    // Apply camera bounds (prevent going too far down, allow infinite up)
+    const clampedY = Math.max(newY, this.worldBounds.top);
+    
+    // Set camera position
+    this.cameras.main.setScroll(newX, clampedY);
+  }
+
+  /**
+   * Update all core game systems
+   * @param {number} deltaTime - Time since last frame (seconds)
+   */
+  updateCoreSystems(deltaTime) {
+    // Update player
+    if (this.player) {
+      this.player.update(deltaTime);
+    }
+    
+    // Void system updates still disabled for stability
+    // if (this.voidSystem) {
+    //   this.voidSystem.update(deltaTime, this.cameraTarget.y);
+    // }
+    
+    // Platform generator updates still disabled for stability
+    // if (this.platformGenerator) {
+    //   this.platformGenerator.update(this.cameras.main.scrollY);
+    // }
+    
+    // Light culling disabled for now
+    // if (this.lightManager) {
+    //   this.lightManager.updateLightCulling(this.cameras.main.scrollY);
+    // }
+  }
+
+  /**
+   * Update visual effects and atmospheric elements - DISABLED FOR PHASE 1
+   * @param {number} deltaTime - Time since last frame (seconds)
+   */
+  updateVisualEffects(deltaTime) {
+    // PHASE 1: DISABLE ALL VISUAL EFFECT UPDATES TO PREVENT MOVEMENT
+    // Keep everything completely static
+    
+    // this.ambientParticles updates disabled
+    // this.updateBackgroundParallax() disabled
+    
+    // No visual updates to prevent any movement or teleporting
+  }
+
+  /**
+   * Update background parallax effect
+   */
+  updateBackgroundParallax() {
+    // Temporarily disabled to prevent visual glitches
+    // Will re-enable when graphics are more stable
+    
+    // const cameraY = this.cameras.main.scrollY;
+    // 
+    // this.backgroundLayers.forEach((layer, index) => {
+    //   if (layer && layer.setY) {
+    //     // Different layers move at different speeds for depth effect
+    //     const parallaxSpeed = 0.1 + (index * 0.05);
+    //     layer.setY(cameraY * parallaxSpeed);
+    //   }
+    // });
+  }
+
+  /**
+   * Update performance metrics
+   */
+  updatePerformanceMetrics() {
+    if (this.platformGenerator) {
+      const stats = this.platformGenerator.getStats();
+      this.performanceMetrics.platformCount = stats.totalPlatforms;
+    }
+    
+    this.performanceMetrics.lightCount = this.lightManager ? this.lightManager.activeLights.length : 0;
+    
+    // Update particle count
+    this.performanceMetrics.particleCount = this.ambientParticles ? 
+      this.ambientParticles.getAliveParticleCount() : 0;
+  }
+
+  /**
+   * Update debug information display
+   */
+  updateDebugDisplay() {
+    const fps = Math.round(this.game.loop.actualFps);
+    const voidY = this.voidSystem ? Math.round(this.voidSystem.getVoidY()) : 'N/A';
+    const voidSpeed = this.voidSystem ? Math.round(this.voidSystem.getVoidSpeed()) : 'N/A';
+    
+    // Get player state for debugging
+    let playerInfo = '';
+    if (this.player) {
+      const state = this.player.getPlayerState();
+      playerInfo = `Player: (${state.position.x}, ${state.position.y}) Vel: (${state.velocity.x}, ${state.velocity.y}) ${state.grounded ? 'GROUNDED' : 'AIRBORNE'}`;
+    }
+    
+    const debugInfo = [
+      `FPS: ${fps}`,
+      `Camera: (${Math.round(this.cameras.main.scrollX)}, ${Math.round(this.cameras.main.scrollY)})`,
+      playerInfo,
+      `Void Y: ${voidY}`,
+      `Void Speed: ${voidSpeed}`,
+      `Platforms: ${this.performanceMetrics.platformCount}`,
+      `Lights: ${this.performanceMetrics.lightCount}`,
+      `Particles: ${this.performanceMetrics.particleCount}`,
+      ``,
+      `Controls:`,
+      `WASD/Arrow Keys - Move`,
+      `Space/W/Up - Jump`,
+      `F1 - Toggle Debug`
+    ];
+    
+    this.debugText.setText(debugInfo.join('\n'));
+  }
+
+  /**
+   * Log system status on initialization
+   */
+  logSystemStatus() {
+    console.log('📊 System Status:');
+    console.log(`  💡 Lighting: ${this.lights.active ? 'Active' : 'Inactive'}`);
+    console.log(`  🎨 Post-processing: ${this.postProcessingPipeline ? 'Active' : 'Fallback'}`);
+    console.log(`  🌊 Void System: ${this.voidSystem ? 'Active' : 'Inactive'}`);
+    console.log(`  🏗️ Platform Generator: ${this.platformGenerator ? 'Active' : 'Inactive'}`);
+    console.log(`  ✨ Particles: ${this.ambientParticles ? 'Active' : 'Inactive'}`);
+  }
+
+  /**
+   * Clean up scene resources
+   */
+  destroy() {
+    console.log('🧹 Cleaning up GameScene resources...');
+    
+    // Destroy systems
+    if (this.voidSystem) {
+      this.voidSystem.destroy();
+    }
+    
+    if (this.platformGenerator) {
+      this.platformGenerator.destroy();
+    }
+    
+    // Clean up visual elements
+    this.backgroundLayers.forEach(layer => {
+      if (layer && layer.destroy) {
+        layer.destroy();
+      }
+    });
+    
+    if (this.ambientParticles) {
+      this.ambientParticles.destroy();
+    }
+    
+    console.log('✅ GameScene cleanup complete');
+    
+    super.destroy();
+  }
+} 
