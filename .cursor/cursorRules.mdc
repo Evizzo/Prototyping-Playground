@@ -1,0 +1,17 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+---
+description: 
+globs: 
+alwaysApply: true
+---
+Modularize Your Code: Separate everything logically by using modern JavaScript features like modules (import/export). Create distinct files for different game scenes (MainMenuScene, Level1Scene), individual game object classes (Player, Enemy), and reusable helper functions to keep your project organized and prevent monolithic files.
+
+Embrace Single Responsibility and Descriptive Naming: Adhere to the principle that one function should perform only one task, which makes it easier to test and debug. Use self-explanatory, descriptive names for functions and variables, even if they become long; clarity is more important than brevity (e.g., handlePlayerPlatformCollision() is better than collide()).
+
+Structure Scenes and Use Groups: Organize your game logic within Phaser's scene structure, using preload() for loading assets, create() for setting up initial game objects and physics, and update() for the game loop. Manage similar objects like platforms, coins, or enemies by creating physics groups (this.physics.add.group() or this.physics.add.staticGroup()), which simplifies collision management and bulk actions.
+
+Document Thoroughly: Write clear, concise comments and documentation for each function, class, and complex block of code. Explain the purpose of the function, its parameters, and what it returns, allowing anyone (including your future self) to quickly understand its role without having to decipher the implementation logic.
