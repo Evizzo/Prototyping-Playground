@@ -85,21 +85,28 @@ export class CoinSystem {
     // Create physics sprite
     const coin = this.scene.physics.add.sprite(coinX, coinY, 'coin');
     
-    // Configure physics
+    // Configure physics - PROPERLY disable gravity and movement
     coin.setCollideWorldBounds(false);
     coin.body.setSize(CONFIG.COINS.COLLECTION_RADIUS, CONFIG.COINS.COLLECTION_RADIUS);
-    coin.body.setGravityY(-CONFIG.WORLD.GRAVITY); // Disable gravity for floating effect
+    
+    // COMPLETELY disable physics movement - make it kinematic
+    coin.body.setGravityY(-CONFIG.WORLD.GRAVITY); // Cancel world gravity
+    coin.body.setVelocity(0, 0); // No initial velocity
+    coin.body.setImmovable(true); // Immovable
+    coin.body.moves = false; // CRITICAL: Disable physics movement entirely
     
     // Visual setup
-    coin.setDepth(50); // Above platforms
+    coin.setDepth(50);
     coin.setScale(1.0);
     coin.setTint(this.getRandomCoinColor());
     
-    // Store coin data
+    // Store coin data with UNIQUE identifier
     coin.coinData = {
+      id: `coin_${this.stats.totalCoinsCreated}_${Date.now()}`,
       platform: platform,
+      originalX: coinX,
       originalY: coinY,
-      bounceOffset: Math.random() * Math.PI * 2, // Random bounce phase
+      bounceOffset: Math.random() * Math.PI * 2,
       collected: false,
       value: CONFIG.SCORING.COIN_VALUE,
       creationTime: this.scene.time.now
@@ -114,7 +121,7 @@ export class CoinSystem {
     // Create coin light
     this.createCoinLight(coin);
     
-    console.log(`🪙 Coin created at (${coinX}, ${coinY})`);
+    console.log(`🪙 Coin created with ID: ${coin.coinData.id} at (${coinX}, ${coinY})`);
     
     return coin;
   }
@@ -170,50 +177,68 @@ export class CoinSystem {
     const time = this.scene.time.now;
     
     this.coins.forEach(coin => {
-      if (!coin.coinData.collected) {
-        // Floating bounce animation
-        const bouncePhase = (time * CONFIG.COINS.BOUNCE_SPEED * 0.001) + coin.coinData.bounceOffset;
-        const bounceY = Math.sin(bouncePhase) * CONFIG.COINS.BOUNCE_HEIGHT;
+      if (coin && coin.coinData && !coin.coinData.collected) {
+        // Very gentle bounce - 2px up and down
+        const bouncePhase = (time * 0.001) + coin.coinData.bounceOffset;
+        const bounceY = Math.sin(bouncePhase) * 2;
+        const bounceX = Math.cos(bouncePhase * 0.5) * 1; // Slight horizontal sway
         
-        coin.y = coin.coinData.originalY + bounceY;
+        // Use physics body positioning to keep sprite and body in sync
+        const newX = coin.coinData.originalX + bounceX;
+        const newY = coin.coinData.originalY + bounceY;
         
-        // Update light position if it exists
-        if (coin.coinData.light) {
+        // Update both sprite and physics body position
+        coin.setPosition(newX, newY);
+        
+        // Very slow rotation
+        coin.rotation += 0.003;
+        
+        // Update light position occasionally
+        if (coin.coinData.light && time % 200 < 16) {
           coin.coinData.light.x = coin.x;
           coin.coinData.light.y = coin.y;
         }
-        
-        // Gentle rotation
-        coin.rotation += 0.02;
       }
     });
   }
 
   /**
-   * Check for coin collection by player
+   * Check for coin collection by player - FIXED VERSION
    * @param {object} player - Player object
    */
   checkCoinCollection(player) {
-    this.coins.forEach((coin, index) => {
-      if (!coin.coinData.collected) {
+    // Use a simple for loop to avoid any iteration issues
+    for (let i = 0; i < this.coins.length; i++) {
+      const coin = this.coins[i];
+      
+      if (coin && coin.coinData && !coin.coinData.collected && coin.active) {
         const distance = Phaser.Math.Distance.Between(
           player.x, player.y,
           coin.x, coin.y
         );
         
+        // Debug log for troubleshooting
+        if (distance < CONFIG.COINS.COLLECTION_RADIUS + 10) {
+          console.log(`🎯 Near coin: distance=${Math.round(distance)}, required=${CONFIG.COINS.COLLECTION_RADIUS}, coin pos=(${Math.round(coin.x)}, ${Math.round(coin.y)}), player pos=(${Math.round(player.x)}, ${Math.round(player.y)})`);
+        }
+        
         if (distance < CONFIG.COINS.COLLECTION_RADIUS) {
-          this.collectCoin(coin, index);
+          console.log(`💎 COLLECTING coin at distance: ${Math.round(distance)}`);
+          this.collectCoin(coin, i);
+          // Break after collecting one coin to avoid any weird array issues
+          break;
         }
       }
-    });
+    }
   }
 
   /**
-   * Handle coin collection
+   * Handle coin collection - SIMPLIFIED VERSION
    * @param {Phaser.Physics.Arcade.Sprite} coin - The collected coin
    * @param {number} index - Coin index in array
    */
   collectCoin(coin, index) {
+    // Mark as collected immediately
     coin.coinData.collected = true;
     
     // Award points through scoring system
@@ -227,7 +252,7 @@ export class CoinSystem {
       this.scene.lights.removeLight(coin.coinData.light);
     }
     
-    // Remove from management
+    // Remove from arrays and destroy
     this.coins.splice(index, 1);
     this.coinGroup.remove(coin);
     coin.destroy();
@@ -235,7 +260,7 @@ export class CoinSystem {
     this.stats.coinsCollected++;
     this.stats.activeCoins--;
     
-    console.log(`✨ Coin collected! Value: ${coinValue}`);
+    console.log(`✨ Coin collected! ID: ${coin.coinData.id}, Value: ${coinValue}, Remaining: ${this.coins.length}`);
   }
 
   /**

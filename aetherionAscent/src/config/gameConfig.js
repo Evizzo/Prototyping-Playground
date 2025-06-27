@@ -103,7 +103,7 @@ export const CONFIG = {
     GAP_CHANCE: 0.25,                // Probability of creating a gap/hole in a platform
     GAP_WIDTH_MIN: 40,               // Minimum width of gaps in platforms
     GAP_WIDTH_MAX: 80,               // Maximum width of gaps in platforms
-    COIN_PLATFORM_CHANCE: 0.35,     // Probability a platform has a coin (configurable)
+    COIN_PLATFORM_CHANCE: 0.25,     // Reduced from 0.20 to 0.15 (15% instead of 20%)
   },
 
   /**
@@ -136,10 +136,11 @@ export const CONFIG = {
   COINS: {
     SIZE: 16,                        // Coin sprite diameter
     GLOW_RADIUS: 24,                 // Coin glow effect radius
-    BOUNCE_HEIGHT: 8,                // Vertical bounce animation height
+    BOUNCE_HEIGHT: 6,                // Vertical bounce animation height (reduced slightly)
     BOUNCE_SPEED: 3.0,               // Bounce animation speed
-    COLLECTION_RADIUS: 20,           // Distance for auto-collection
+    COLLECTION_RADIUS: 25,           // Distance for auto-collection (increased slightly)
     LIGHT_INTENSITY: 0.8,            // Coin light emission intensity
+    PLATFORM_CLEARANCE: 30,          // Minimum clearance above platform (new)
     COLORS: [                        // Available coin colors (golden variations)
       0xffd700,  // Gold
       0xffed4e,  // Light gold

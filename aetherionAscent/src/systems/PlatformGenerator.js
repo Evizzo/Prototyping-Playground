@@ -150,13 +150,13 @@ export class PlatformGenerator {
     // Generate starting platform at bottom of screen
     this.createStartingPlatform();
     
+    // CREATE IMMEDIATE STARTER SEQUENCE - reachable from starting platform
+    this.createImmediateStarterPlatforms();
+    
     // Generate strategic initial platforms
     for (let i = 0; i < 3; i++) {
       this.generateChunk();
     }
-    
-    // Add strategic starter sequence
-    this.createStarterSequence();
     
     console.log(`✅ Platform generation complete. Total platforms: ${this.platforms.length}`);
     this.debugAllPlatforms();
@@ -177,24 +177,29 @@ export class PlatformGenerator {
   }
 
   /**
-   * Create a reachable starter sequence
+   * Create immediate platforms that are reachable from the starting platform
    */
-  createStarterSequence() {
+  createImmediateStarterPlatforms() {
     const startY = this.scene.cameras.main.height - 100;
     const centerX = this.scene.cameras.main.width / 2;
     
-    // Create starter platforms with guaranteed reachable spacing
+    // Create a sequence of easily reachable platforms near the starting platform
     const starterPlatforms = [
-      { x: centerX - 100, y: startY - 70, width: 180, light: false },
-      { x: centerX + 80, y: startY - 140, width: 160, light: true },
-      { x: centerX - 90, y: startY - 210, width: 200, light: false },
-      { x: centerX + 70, y: startY - 280, width: 170, light: true },
-      { x: centerX - 110, y: startY - 350, width: 190, light: false }
+      { x: centerX - 120, y: startY - 80, width: 160, light: false },   // First jump - easy
+      { x: centerX + 100, y: startY - 160, width: 140, light: false },  // Second jump
+      { x: centerX - 80, y: startY - 240, width: 180, light: true },    // Third jump with light
+      { x: centerX + 90, y: startY - 320, width: 150, light: false },   // Fourth jump
+      { x: centerX - 110, y: startY - 400, width: 170, light: true }    // Fifth jump - connects to chunks
     ];
     
-    starterPlatforms.forEach(platform => {
+    starterPlatforms.forEach((platform, index) => {
       this.createUnifiedPlatform(platform.x, platform.y, platform.width, platform.light);
+      console.log(`🎯 Starter platform ${index + 1} created at (${platform.x}, ${platform.y})`);
     });
+    
+    // Update the last generated Y to connect properly with chunks
+    this.lastGeneratedY = startY - 400;
+    this.nextChunkY = startY - 500; // Start chunks from here
   }
 
   /**
@@ -404,10 +409,30 @@ export class PlatformGenerator {
       
       // 🪙 STEP 9: Add coin generation (after platform is created successfully)
       if (this.coinSystem && Math.random() < CONFIG.GENERATION.COIN_PLATFORM_CHANCE) {
-        // Create coin at platform center, above the platform
-        const coinX = platform.x;
-        const coinY = platform.y - CONFIG.WORLD.PLATFORM_THICKNESS;
+        // Create coin at a strategic position on the platform
+        // Add some variety to coin placement but keep them on platforms
+        const platformLeft = platform.x - (platform.displayWidth / 2);
+        const platformRight = platform.x + (platform.displayWidth / 2);
+        const platformWidth = platform.displayWidth;
+        
+        // Position coin somewhere along the platform (avoiding edges)
+        const edgeMargin = 20; // Keep coins away from platform edges
+        const minX = platformLeft + edgeMargin;
+        const maxX = platformRight - edgeMargin;
+        
+        // Random position along platform, or center if platform is too small
+        let coinX = platform.x; // Default to center
+        if (platformWidth > edgeMargin * 2) {
+          coinX = Phaser.Math.Between(minX, maxX);
+        }
+        
+        // Position coin WELL ABOVE platform surface to avoid clipping
+        const platformTop = platform.y - (CONFIG.WORLD.PLATFORM_THICKNESS / 2);
+        const coinY = platformTop - 30; // 30 pixels above platform surface
+        
         this.coinSystem.createCoin(coinX, coinY, platform);
+        
+        console.log(`🪙 Coin placed on platform at (${Math.round(coinX)}, ${Math.round(coinY)}), platform top: ${Math.round(platformTop)}`);
       }
 
       return platform;
