@@ -57,8 +57,19 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       jump: [scene.input.keyboard.addKey('SPACE'), scene.input.keyboard.addKey('W'), scene.input.keyboard.addKey('UP')]
     };
     
+    // Cool visual elements
+    this.visualElements = {
+      hat: null,
+      cape: null,
+      speedTrail: [],
+      maxTrailLength: 8,
+      hatBobOffset: 0,
+      capeSwayOffset: 0
+    };
+    
     // Visual and lighting setup
     this.setupPlayerVisuals();
+    this.setupCoolAccessories();
     this.setupPlayerLight();
     this.setupPlayerPhysics();
     
@@ -73,15 +84,185 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
    * Setup player visual appearance
    */
   setupPlayerVisuals() {
-    // Set player size and visual properties
-    this.setDisplaySize(24, 32);
-    this.setTint(CONFIG.LIGHTING.PLAYER_LIGHT_COLOR);
+    // Hide the original simple sprite - we'll create detailed body parts
+    this.setVisible(false);
+    
+    // Create realistic human-like body parts
+    this.bodyParts = {
+      head: null,
+      torso: null,
+      leftArm: null,
+      rightArm: null,
+      leftLeg: null,
+      rightLeg: null
+    };
+    
+    this.createRealisticPlayerBody();
     
     // Set render depth to appear above most objects
     this.setDepth(50);
+  }
+
+  /**
+   * Create a realistic human-like character with detailed body parts
+   */
+  createRealisticPlayerBody() {
+    const baseX = this.x;
+    const baseY = this.y;
     
-    // Add subtle glow effect (we'll enhance this later)
-    this.setAlpha(0.9);
+    // Create head (circular with face details)
+    this.bodyParts.head = this.scene.add.graphics();
+    this.bodyParts.head.setPosition(baseX, baseY - 12);
+    this.bodyParts.head.setDepth(52);
+    
+    // Head shape - skin tone
+    this.bodyParts.head.fillStyle(0xffdbac, 1.0); // Skin color
+    this.bodyParts.head.fillCircle(0, 0, 8);
+    
+    // Eyes
+    this.bodyParts.head.fillStyle(0x000000, 1.0);
+    this.bodyParts.head.fillCircle(-3, -2, 1.5); // Left eye
+    this.bodyParts.head.fillCircle(3, -2, 1.5);  // Right eye
+    
+    // Eye shine
+    this.bodyParts.head.fillStyle(0xffffff, 1.0);
+    this.bodyParts.head.fillCircle(-2.5, -2.5, 0.5);
+    this.bodyParts.head.fillCircle(3.5, -2.5, 0.5);
+    
+    // Mouth
+    this.bodyParts.head.lineStyle(1, 0x000000);
+    this.bodyParts.head.beginPath();
+    this.bodyParts.head.arc(0, 2, 2, 0, Math.PI);
+    this.bodyParts.head.strokePath();
+    
+    // Create torso (rectangular with armor-like details)
+    this.bodyParts.torso = this.scene.add.graphics();
+    this.bodyParts.torso.setPosition(baseX, baseY + 2);
+    this.bodyParts.torso.setDepth(50);
+    
+    // Main torso - adventurer clothing
+    this.bodyParts.torso.fillStyle(0x8b4513, 1.0); // Brown leather armor
+    this.bodyParts.torso.fillRoundedRect(-6, -8, 12, 16, 2);
+    
+    // Chest plate details
+    this.bodyParts.torso.fillStyle(0x654321, 1.0); // Darker brown
+    this.bodyParts.torso.fillRoundedRect(-4, -6, 8, 6, 1);
+    
+    // Belt
+    this.bodyParts.torso.fillStyle(0x2f1b14, 1.0); // Dark brown belt
+    this.bodyParts.torso.fillRect(-6, 4, 12, 2);
+    
+    // Belt buckle
+    this.bodyParts.torso.fillStyle(0xffd700, 1.0); // Gold buckle
+    this.bodyParts.torso.fillRect(-1, 4, 2, 2);
+    
+    // Create arms (animated based on movement)
+    this.bodyParts.leftArm = this.scene.add.graphics();
+    this.bodyParts.leftArm.setPosition(baseX - 8, baseY - 4);
+    this.bodyParts.leftArm.setDepth(49);
+    
+    // Left arm
+    this.bodyParts.leftArm.fillStyle(0xffdbac, 1.0); // Skin
+    this.bodyParts.leftArm.fillCircle(0, 0, 3); // Shoulder
+    this.bodyParts.leftArm.fillRect(-1, 0, 2, 8); // Upper arm
+    this.bodyParts.leftArm.fillCircle(0, 8, 2.5); // Elbow
+    this.bodyParts.leftArm.fillRect(-1, 8, 2, 6); // Forearm
+    
+    // Right arm
+    this.bodyParts.rightArm = this.scene.add.graphics();
+    this.bodyParts.rightArm.setPosition(baseX + 8, baseY - 4);
+    this.bodyParts.rightArm.setDepth(49);
+    
+    this.bodyParts.rightArm.fillStyle(0xffdbac, 1.0); // Skin
+    this.bodyParts.rightArm.fillCircle(0, 0, 3); // Shoulder
+    this.bodyParts.rightArm.fillRect(-1, 0, 2, 8); // Upper arm
+    this.bodyParts.rightArm.fillCircle(0, 8, 2.5); // Elbow
+    this.bodyParts.rightArm.fillRect(-1, 8, 2, 6); // Forearm
+    
+    // Create legs (animated for walking)
+    this.bodyParts.leftLeg = this.scene.add.graphics();
+    this.bodyParts.leftLeg.setPosition(baseX - 3, baseY + 8);
+    this.bodyParts.leftLeg.setDepth(49);
+    
+    // Left leg
+    this.bodyParts.leftLeg.fillStyle(0x4a4a4a, 1.0); // Dark pants
+    this.bodyParts.leftLeg.fillRect(-2, 0, 4, 10); // Thigh
+    this.bodyParts.leftLeg.fillStyle(0x654321, 1.0); // Brown boots
+    this.bodyParts.leftLeg.fillRect(-2, 8, 4, 4); // Lower leg/boot
+    
+    // Right leg
+    this.bodyParts.rightLeg = this.scene.add.graphics();
+    this.bodyParts.rightLeg.setPosition(baseX + 3, baseY + 8);
+    this.bodyParts.rightLeg.setDepth(49);
+    
+    this.bodyParts.rightLeg.fillStyle(0x4a4a4a, 1.0); // Dark pants
+    this.bodyParts.rightLeg.fillRect(-2, 0, 4, 10); // Thigh
+    this.bodyParts.rightLeg.fillStyle(0x654321, 1.0); // Brown boots
+    this.bodyParts.rightLeg.fillRect(-2, 8, 4, 4); // Lower leg/boot
+    
+    // Add subtle outline to all body parts
+    this.addBodyPartOutlines();
+    
+    // Animation state for body parts
+    this.animationState = {
+      walkCycle: 0,
+      armSwing: 0,
+      headBob: 0
+    };
+    
+    console.log('🧙‍♂️ Realistic adventurer body created!');
+  }
+
+  /**
+   * Add subtle outlines to all body parts for better definition
+   */
+  addBodyPartOutlines() {
+    Object.values(this.bodyParts).forEach(part => {
+      if (part) {
+        part.lineStyle(1, 0x000000, 0.3);
+      }
+    });
+  }
+
+  /**
+   * Setup cool accessories like hat and cape
+   */
+  setupCoolAccessories() {
+    // Create a realistic wizard/adventure hat with proper shape
+    this.visualElements.hat = this.scene.add.graphics();
+    this.visualElements.hat.setPosition(this.x, this.y - 20);
+    this.visualElements.hat.setDepth(53);
+    
+    // Hat base (circular brim)
+    this.visualElements.hat.fillStyle(0x2c1810, 1.0); // Dark brown leather
+    this.visualElements.hat.fillEllipse(0, 6, 20, 6); // Flat brim
+    
+    // Hat crown (main part)
+    this.visualElements.hat.fillStyle(0x4a2c17, 1.0); // Medium brown
+    this.visualElements.hat.fillRoundedRect(-8, -8, 16, 14, 2); // Main hat body
+    
+    // Hat band (decorative stripe)
+    this.visualElements.hat.fillStyle(0x8b4513, 1.0); // Lighter brown band
+    this.visualElements.hat.fillRect(-8, 2, 16, 3);
+    
+    // Hat buckle/ornament
+    this.visualElements.hat.fillStyle(0xffd700, 1.0); // Gold buckle
+    this.visualElements.hat.fillRect(-2, 2, 4, 3);
+    this.visualElements.hat.fillStyle(0x000000, 1.0); // Black center
+    this.visualElements.hat.fillRect(-1, 3, 2, 1);
+    
+    // Hat tip/point (adventure hat style)
+    this.visualElements.hat.fillStyle(0x4a2c17, 1.0);
+    this.visualElements.hat.fillTriangle(-4, -8, 4, -8, 0, -18); // Pointed tip
+    
+    // Hat shadow under brim
+    this.visualElements.hat.fillStyle(0x000000, 0.2);
+    this.visualElements.hat.fillEllipse(0, 7, 18, 4);
+    
+    // Remove cape - no longer needed
+    this.visualElements.cape = null;
+    
+    console.log('🎩 Realistic adventurer hat equipped! Cape removed for better mobility! ✨');
   }
 
   /**
@@ -309,16 +490,235 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
    * Update visual effects based on player state
    */
   updateVisualEffects() {
-    // Tilt player slightly based on horizontal movement for dynamic feel
-    const speedRatio = this.body.velocity.x / this.playerState.maxHorizontalSpeed;
-    this.rotation = speedRatio * 0.1; // Subtle tilt
+    // Update realistic body part animations
+    this.updateBodyPartPositions();
+    this.updateBodyPartAnimations();
     
-    // Adjust alpha based on wall sliding
-    if (this.playerState.isTouchingWall && !this.playerState.isGrounded) {
-      this.setAlpha(0.7); // Slightly transparent when wall sliding
-    } else {
-      this.setAlpha(0.9); // Normal transparency
+    // Update cool accessories
+    this.updateHatAnimation();
+    this.updateSpeedTrail();
+  }
+
+  /**
+   * Update all body part positions to follow the player
+   */
+  updateBodyPartPositions() {
+    const baseX = this.x;
+    const baseY = this.y;
+    
+    // Update base positions for all body parts
+    if (this.bodyParts.head) {
+      this.bodyParts.head.setPosition(baseX, baseY - 12);
     }
+    if (this.bodyParts.torso) {
+      this.bodyParts.torso.setPosition(baseX, baseY + 2);
+    }
+    if (this.bodyParts.leftArm) {
+      this.bodyParts.leftArm.setPosition(baseX - 8, baseY - 4);
+    }
+    if (this.bodyParts.rightArm) {
+      this.bodyParts.rightArm.setPosition(baseX + 8, baseY - 4);
+    }
+    if (this.bodyParts.leftLeg) {
+      this.bodyParts.leftLeg.setPosition(baseX - 3, baseY + 8);
+    }
+    if (this.bodyParts.rightLeg) {
+      this.bodyParts.rightLeg.setPosition(baseX + 3, baseY + 8);
+    }
+  }
+
+  /**
+   * Animate body parts based on movement and state
+   */
+  updateBodyPartAnimations() {
+    const speed = Math.abs(this.body.velocity.x);
+    const isMoving = speed > 20;
+    
+    // Update animation cycles
+    if (isMoving) {
+      this.animationState.walkCycle += 0.3;
+      this.animationState.armSwing += 0.25;
+    } else {
+      this.animationState.walkCycle += 0.05; // Slow idle animation
+      this.animationState.armSwing += 0.02;
+    }
+    this.animationState.headBob += 0.1;
+    
+    // Animate head (subtle bobbing)
+    this.animateHead(isMoving);
+    
+    // Animate torso (slight tilt based on movement)
+    this.animateTorso();
+    
+    // Animate arms (swinging with movement)
+    this.animateArms(isMoving);
+    
+    // Animate legs (walking cycle)
+    this.animateLegs(isMoving);
+    
+    // Handle facing direction for all body parts
+    this.updateBodyPartFacing();
+  }
+
+  /**
+   * Animate the head with realistic movements
+   */
+  animateHead(isMoving) {
+    if (!this.bodyParts.head) return;
+    
+    // Subtle head bobbing
+    const bobAmount = isMoving ? Math.sin(this.animationState.headBob) * 1 : Math.sin(this.animationState.headBob) * 0.3;
+    this.bodyParts.head.y += bobAmount;
+    
+    // Head tilt based on movement direction
+    const speedRatio = this.body.velocity.x / this.playerState.maxHorizontalSpeed;
+    this.bodyParts.head.rotation = speedRatio * 0.05;
+    
+    // Extra head movement when jumping/falling
+    if (!this.playerState.isGrounded) {
+      const verticalInfluence = this.body.velocity.y / 400;
+      this.bodyParts.head.rotation += verticalInfluence * 0.1;
+    }
+  }
+
+  /**
+   * Animate the torso with subtle movements
+   */
+  animateTorso() {
+    if (!this.bodyParts.torso) return;
+    
+    // Torso leans slightly with movement
+    const speedRatio = this.body.velocity.x / this.playerState.maxHorizontalSpeed;
+    this.bodyParts.torso.rotation = speedRatio * 0.03;
+    
+    // Breathing animation (subtle expansion/contraction)
+    const breathe = Math.sin(this.animationState.headBob * 0.5) * 0.5;
+    this.bodyParts.torso.scaleY = 1 + breathe * 0.02;
+  }
+
+  /**
+   * Animate arms with realistic swinging motion
+   */
+  animateArms(isMoving) {
+    if (!this.bodyParts.leftArm || !this.bodyParts.rightArm) return;
+    
+    const swingAmount = isMoving ? 0.3 : 0.1;
+    
+    // Arms swing opposite to each other
+    const leftArmSwing = Math.sin(this.animationState.armSwing) * swingAmount;
+    const rightArmSwing = Math.sin(this.animationState.armSwing + Math.PI) * swingAmount;
+    
+    this.bodyParts.leftArm.rotation = leftArmSwing;
+    this.bodyParts.rightArm.rotation = rightArmSwing;
+    
+    // Arms move more dramatically when jumping
+    if (!this.playerState.isGrounded) {
+      this.bodyParts.leftArm.rotation += 0.2;
+      this.bodyParts.rightArm.rotation -= 0.2;
+    }
+  }
+
+  /**
+   * Animate legs with walking cycle
+   */
+  animateLegs(isMoving) {
+    if (!this.bodyParts.leftLeg || !this.bodyParts.rightLeg) return;
+    
+    const walkAmount = isMoving ? 0.2 : 0.05;
+    
+    // Legs alternate like walking
+    const leftLegMove = Math.sin(this.animationState.walkCycle) * walkAmount;
+    const rightLegMove = Math.sin(this.animationState.walkCycle + Math.PI) * walkAmount;
+    
+    this.bodyParts.leftLeg.rotation = leftLegMove;
+    this.bodyParts.rightLeg.rotation = rightLegMove;
+    
+    // Legs position slightly forward/back during walk cycle
+    if (isMoving) {
+      this.bodyParts.leftLeg.x += Math.sin(this.animationState.walkCycle) * 2;
+      this.bodyParts.rightLeg.x += Math.sin(this.animationState.walkCycle + Math.PI) * 2;
+    }
+  }
+
+  /**
+   * Update facing direction for all body parts
+   */
+  updateBodyPartFacing() {
+    const facingLeft = this.playerState.facingDirection === -1;
+    
+    // Flip all body parts based on facing direction
+    Object.values(this.bodyParts).forEach(part => {
+      if (part) {
+        part.setScale(facingLeft ? -1 : 1, 1);
+      }
+    });
+  }
+
+  /**
+   * Animate the awesome hat with bobbing and tilting
+   */
+  updateHatAnimation() {
+    if (!this.visualElements.hat) return;
+    
+    // Update hat position to follow player
+    this.visualElements.hat.setPosition(this.x, this.y - 20);
+    
+    // Bob the hat slightly when moving
+    this.visualElements.hatBobOffset += 0.15;
+    const bobAmount = Math.abs(this.body.velocity.x) > 20 ? Math.sin(this.visualElements.hatBobOffset) * 2 : 0;
+    this.visualElements.hat.y += bobAmount;
+    
+    // Tilt hat based on movement and facing direction
+    const speedRatio = this.body.velocity.x / this.playerState.maxHorizontalSpeed;
+    this.visualElements.hat.rotation = speedRatio * 0.15;
+    
+    // Flip hat with player using scale instead of setFlipX (since it's graphics)
+    const facingLeft = this.playerState.facingDirection === -1;
+    this.visualElements.hat.setScale(facingLeft ? -1 : 1, 1);
+    
+    // Hat bounces more dramatically when jumping/falling
+    if (!this.playerState.isGrounded) {
+      const verticalInfluence = this.body.velocity.y / 500;
+      this.visualElements.hat.y += verticalInfluence * 3;
+      
+      // Hat tilts more when airborne for dramatic effect
+      this.visualElements.hat.rotation += verticalInfluence * 0.1;
+    }
+  }
+
+  /**
+   * Create and update speed trail effect
+   */
+  updateSpeedTrail() {
+    const speed = Math.abs(this.body.velocity.x);
+    
+    // Only create trail when moving fast enough
+    if (speed > 100) {
+      // Add new trail point
+      this.visualElements.speedTrail.push({
+        x: this.x,
+        y: this.y,
+        alpha: 0.6,
+        time: this.scene.time.now
+      });
+      
+      // Limit trail length
+      if (this.visualElements.speedTrail.length > this.visualElements.maxTrailLength) {
+        this.visualElements.speedTrail.shift();
+      }
+    }
+    
+    // Update existing trail points
+    this.visualElements.speedTrail.forEach((point, index) => {
+      // Fade out over time
+      const age = this.scene.time.now - point.time;
+      point.alpha = Math.max(0, 0.6 - (age / 300));
+      
+      // Remove old points
+      if (point.alpha <= 0) {
+        this.visualElements.speedTrail.splice(index, 1);
+      }
+    });
   }
 
   /**
@@ -359,12 +759,27 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       this.scene.lights.removeLight(this.playerLight);
     }
     
+    // Clean up cool visual elements
+    if (this.visualElements.hat) {
+      this.visualElements.hat.destroy();
+    }
+    
+    // Clean up all body parts
+    Object.values(this.bodyParts).forEach(part => {
+      if (part) {
+        part.destroy();
+      }
+    });
+    
+    // Clean up speed trail
+    this.visualElements.speedTrail = [];
+    
     // Clean up input handlers
     this.keys.left.forEach(key => key.destroy());
     this.keys.right.forEach(key => key.destroy());
     this.keys.jump.forEach(key => key.destroy());
     
-    console.log('🧹 Player cleaned up');
+    console.log('🧹 Realistic player and cool hat cleaned up');
     
     super.destroy();
   }
