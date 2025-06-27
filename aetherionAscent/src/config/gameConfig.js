@@ -30,7 +30,7 @@ export const CONFIG = {
     PLATFORM_MIN_WIDTH: 120,        // Minimum platform width - good for strategic placement
     PLATFORM_MAX_WIDTH: 280,        // Maximum platform width - larger for gaps
     PLATFORM_THICKNESS: 20,         // Platform height
-    CHUNK_HEIGHT: 500,               // Height of each generated chunk - fewer but more strategic platforms
+    CHUNK_HEIGHT: 800,               // Height of each generated chunk - increased for wider spacing
     PLATFORM_DESTRUCTION_OFFSET: 200 // How far below void before platforms are destroyed
   },
 
@@ -95,10 +95,10 @@ export const CONFIG = {
    */
   GENERATION: {
     LIGHT_PLATFORM_CHANCE: 0.35,    // Probability a platform emits light
-    MIN_HORIZONTAL_GAP: 50,          // Minimum horizontal distance between platforms - reachable
-    MAX_HORIZONTAL_GAP: 100,         // Maximum horizontal distance between platforms - always reachable
-    VERTICAL_SPACING_MIN: 60,        // Minimum vertical gap between platforms - reachable jumps
-    VERTICAL_SPACING_MAX: 90,        // Maximum vertical gap between platforms - always jumpable
+    MIN_HORIZONTAL_GAP: 60,          // Minimum horizontal distance between platforms - increased for more challenge
+    MAX_HORIZONTAL_GAP: 120,         // Maximum horizontal distance between platforms - increased but still reachable
+    VERTICAL_SPACING_MIN: 80,        // Minimum vertical gap between platforms - increased (2.5x player height)
+    VERTICAL_SPACING_MAX: 140,       // Maximum vertical gap between platforms - much larger spread
     SAFE_SPAWN_DISTANCE: 800,       // Distance ahead of camera to generate content
     GAP_CHANCE: 0.25,                // Probability of creating a gap/hole in a platform
     GAP_WIDTH_MIN: 40,               // Minimum width of gaps in platforms

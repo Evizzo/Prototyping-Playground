@@ -80,7 +80,8 @@ export class CoinSystem {
   createCoin(x, y, platform) {
     // Position coin above platform center
     const coinX = x;
-    const coinY = y - CONFIG.COINS.SIZE;
+    // Position coin at half player height (16px) above platform surface
+    const coinY = y - CONFIG.COINS.SIZE - 16; // Platform top - coin size - half player height
     
     // Create physics sprite
     const coin = this.scene.physics.add.sprite(coinX, coinY, 'coin');

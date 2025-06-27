@@ -426,9 +426,9 @@ export class PlatformGenerator {
           coinX = Phaser.Math.Between(minX, maxX);
         }
         
-        // Position coin WELL ABOVE platform surface to avoid clipping
+        // Position coin at half player height (16px) above platform surface
         const platformTop = platform.y - (CONFIG.WORLD.PLATFORM_THICKNESS / 2);
-        const coinY = platformTop - 30; // 30 pixels above platform surface
+        const coinY = platformTop - 16; // Half player height above platform surface
         
         this.coinSystem.createCoin(coinX, coinY, platform);
         
