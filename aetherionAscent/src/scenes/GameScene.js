@@ -2,6 +2,8 @@ import { CONFIG, getRandomParticleColor } from '../config/gameConfig.js';
 import { VoidSystem } from '../systems/VoidSystem.js';
 import { PlatformGenerator } from '../systems/PlatformGenerator.js';
 import { Player } from '../entities/Player.js';
+import { ScoringSystem } from '../systems/ScoringSystem.js';
+import { CoinSystem } from '../systems/CoinSystem.js';
 
 // Import shaders as text
 import bloomShader from '../shaders/bloom.frag?raw';
@@ -36,6 +38,8 @@ export class GameScene extends Phaser.Scene {
     this.voidSystem = null;
     this.platformGenerator = null;
     this.player = null;
+    this.scoringSystem = null;
+    this.coinSystem = null;
     
     // Visual systems
     this.backgroundLayers = [];
@@ -53,15 +57,6 @@ export class GameScene extends Phaser.Scene {
       bottom: 2000,
       left: 0,
       right: CONFIG.GAME.WIDTH
-    };
-    
-    // Height tracking and scoring (Icy Tower style)
-    this.gameStats = {
-      currentHeight: 0,
-      maxHeight: 0,
-      startingY: 0,
-      score: 0,
-      platformsReached: 0
     };
     
     // Debug and performance
@@ -200,11 +195,6 @@ export class GameScene extends Phaser.Scene {
     
     // Set player as camera target
     this.cameraTarget = this.player;
-    
-    // Initialize height tracking
-    this.gameStats.startingY = startY;
-    this.gameStats.currentHeight = 0;
-    this.gameStats.maxHeight = 0;
     
     // Setup physics collisions between player and platform GROUP
     // The platform group is now created by the PlatformGenerator
@@ -416,13 +406,19 @@ export class GameScene extends Phaser.Scene {
   initializeCoreSystems() {
     console.log('⚡ Initializing core game systems...');
     
-    // Initialize void system first
+    // Initialize scoring system first
+    this.scoringSystem = new ScoringSystem(this);
+    
+    // Initialize coin system
+    this.coinSystem = new CoinSystem(this, this.scoringSystem);
+    
+    // Initialize void system
     this.voidSystem = new VoidSystem(this);
     
-    // Initialize platform generator (depends on void system)
-    this.platformGenerator = new PlatformGenerator(this, this.voidSystem);
+    // Initialize platform generator with coin system reference
+    this.platformGenerator = new PlatformGenerator(this, this.voidSystem, this.coinSystem);
     
-    console.log('✅ Core systems online');
+    console.log('✅ Core systems initialized');
   }
 
   /**
@@ -496,27 +492,13 @@ export class GameScene extends Phaser.Scene {
    * Create on-screen score display
    */
   createScoreDisplay() {
-    // Height display
-    this.heightText = this.add.text(20, 20, 'HEIGHT: 0', {
-      fontFamily: 'Arial',
-      fontSize: '24px',
-      fill: '#64ffda',
-      backgroundColor: 'rgba(26, 26, 46, 0.7)',
-      padding: { x: 10, y: 5 }
-    });
-    this.heightText.setDepth(1000);
-    this.heightText.setScrollFactor(0); // Fixed to camera
-    
-    // Score display
-    this.scoreText = this.add.text(20, 60, 'SCORE: 0', {
-      fontFamily: 'Arial',
-      fontSize: '20px',
-      fill: '#ffd700',
-      backgroundColor: 'rgba(26, 26, 46, 0.7)',
-      padding: { x: 10, y: 5 }
-    });
-    this.scoreText.setDepth(1000);
-    this.scoreText.setScrollFactor(0); // Fixed to camera
+    if (this.scoringSystem) {
+      this.scoringSystem.createScoreDisplay();
+      
+      // Set starting position for height tracking
+      const startingY = this.cameras.main.height - 100;
+      this.scoringSystem.setStartingPosition(startingY);
+    }
   }
 
   /**
@@ -602,8 +584,15 @@ export class GameScene extends Phaser.Scene {
     if (this.player) {
       this.player.update(deltaTime);
       
-      // Update height tracking (Icy Tower style)
-      this.updateHeightTracking();
+      // Update centralized scoring system
+      if (this.scoringSystem) {
+        this.scoringSystem.updateHeightScore(this.player.y);
+      }
+      
+      // Update coin system
+      if (this.coinSystem) {
+        this.coinSystem.update(this.player);
+      }
     }
     
     // Void system updates still disabled for stability
@@ -627,27 +616,10 @@ export class GameScene extends Phaser.Scene {
    * Update height tracking and scoring system
    */
   updateHeightTracking() {
-    if (!this.player) return;
+    if (!this.player || !this.scoringSystem) return;
     
-    // Calculate current height (negative Y means higher up)
-    this.gameStats.currentHeight = Math.max(0, this.gameStats.startingY - this.player.y);
-    
-    // Track maximum height reached
-    if (this.gameStats.currentHeight > this.gameStats.maxHeight) {
-      this.gameStats.maxHeight = this.gameStats.currentHeight;
-      
-      // Award points for new height records (Icy Tower style)
-      const heightScore = Math.floor(this.gameStats.maxHeight / 10);
-      this.gameStats.score = heightScore;
-    }
-    
-    // Update on-screen displays
-    if (this.heightText) {
-      this.heightText.setText(`HEIGHT: ${Math.round(this.gameStats.currentHeight)}`);
-    }
-    if (this.scoreText) {
-      this.scoreText.setText(`SCORE: ${this.gameStats.score}`);
-    }
+    // Update height-based scoring through centralized system
+    this.scoringSystem.updateHeightScore(this.player.y);
   }
 
   /**
@@ -713,14 +685,18 @@ export class GameScene extends Phaser.Scene {
       playerInfo = `Player: (${state.position.x}, ${state.position.y}) Vel: (${state.velocity.x}, ${state.velocity.y}) ${state.grounded ? 'GROUNDED' : 'AIRBORNE'}`;
     }
     
+    // Get scoring stats from centralized system
+    const scoringStats = this.scoringSystem ? this.scoringSystem.getStats() : null;
+    
     const debugInfo = [
       `FPS: ${fps}`,
       `Camera: (${Math.round(this.cameras.main.scrollX)}, ${Math.round(this.cameras.main.scrollY)})`,
       playerInfo,
       ``,
-      `📏 HEIGHT: ${Math.round(this.gameStats.currentHeight)}px`,
-      `🏆 MAX HEIGHT: ${Math.round(this.gameStats.maxHeight)}px`,
-      `⭐ SCORE: ${this.gameStats.score}`,
+      `📏 HEIGHT: ${scoringStats ? Math.round(scoringStats.currentHeight) : 0}px`,
+      `🏆 MAX HEIGHT: ${scoringStats ? Math.round(scoringStats.maxHeight) : 0}px`,
+      `🪙 COINS: ${scoringStats ? scoringStats.coinsCollected : 0}`,
+      `⭐ SCORE: ${scoringStats ? scoringStats.totalScore : 0}`,
       ``,
       `Void Y: ${voidY}`,
       `Void Speed: ${voidSpeed}`,

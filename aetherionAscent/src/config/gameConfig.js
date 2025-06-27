@@ -102,7 +102,8 @@ export const CONFIG = {
     SAFE_SPAWN_DISTANCE: 800,       // Distance ahead of camera to generate content
     GAP_CHANCE: 0.25,                // Probability of creating a gap/hole in a platform
     GAP_WIDTH_MIN: 40,               // Minimum width of gaps in platforms
-    GAP_WIDTH_MAX: 80                // Maximum width of gaps in platforms
+    GAP_WIDTH_MAX: 80,               // Maximum width of gaps in platforms
+    COIN_PLATFORM_CHANCE: 0.35,     // Probability a platform has a coin (configurable)
   },
 
   /**
@@ -127,7 +128,39 @@ export const CONFIG = {
     PARTICLE_CULLING_DISTANCE: 400,  // Distance before particles are culled
     LIGHT_CULLING_DISTANCE: 500,     // Distance before lights are disabled
     TARGET_FPS: 60                   // Target frame rate
-  }
+  },
+
+  /**
+   * Coin collection system configuration
+   */
+  COINS: {
+    SIZE: 16,                        // Coin sprite diameter
+    GLOW_RADIUS: 24,                 // Coin glow effect radius
+    BOUNCE_HEIGHT: 8,                // Vertical bounce animation height
+    BOUNCE_SPEED: 3.0,               // Bounce animation speed
+    COLLECTION_RADIUS: 20,           // Distance for auto-collection
+    LIGHT_INTENSITY: 0.8,            // Coin light emission intensity
+    COLORS: [                        // Available coin colors (golden variations)
+      0xffd700,  // Gold
+      0xffed4e,  // Light gold
+      0xffc107,  // Amber gold
+      0xfff176   // Pale gold
+    ],
+    PARTICLE_COUNT: 8,               // Particles spawned when collected
+    PARTICLE_LIFETIME: 1000          // Collection effect particle duration
+  },
+
+  /**
+   * Scoring system configuration
+   */
+  SCORING: {
+    HEIGHT_DIVISOR: 10,              // Height units per score point
+    HEIGHT_SCORE_MULTIPLIER: 1,     // Multiplier for height score
+    COIN_VALUE: 50,                  // Base points per coin
+    BONUS_COIN_VALUE: 100,           // Special coin bonus value
+    COMBO_MULTIPLIER: 1.5,           // Score multiplier for coin combos
+    COMBO_TIME_WINDOW: 2000          // Time window for combo collection (ms)
+  },
 };
 
 /**

@@ -21,10 +21,12 @@ export class PlatformGenerator {
    * Initialize the platform generation system
    * @param {Phaser.Scene} scene - The game scene
    * @param {VoidSystem} voidSystem - Reference to void system for destruction management
+   * @param {CoinSystem} coinSystem - Reference to coin system for coin generation
    */
-  constructor(scene, voidSystem) {
+  constructor(scene, voidSystem, coinSystem = null) {
     this.scene = scene;
     this.voidSystem = voidSystem;
+    this.coinSystem = coinSystem;
     
     // Platform management
     this.platforms = [];
@@ -400,6 +402,14 @@ export class PlatformGenerator {
       // 🔍 STEP 8: Debug logging for verification
       console.log(`✅ UNIFIED Platform created: pos(${clampedX}, ${y}), visual(${platform.displayWidth}x${platform.displayHeight}), physics(${platform.body.width}x${platform.body.height}), body pos(${Math.round(platform.body.x)}, ${Math.round(platform.body.y)}), light: ${hasLight}`);
       
+      // 🪙 STEP 9: Add coin generation (after platform is created successfully)
+      if (this.coinSystem && Math.random() < CONFIG.GENERATION.COIN_PLATFORM_CHANCE) {
+        // Create coin at platform center, above the platform
+        const coinX = platform.x;
+        const coinY = platform.y - CONFIG.WORLD.PLATFORM_THICKNESS;
+        this.coinSystem.createCoin(coinX, coinY, platform);
+      }
+
       return platform;
 
     } catch (error) {
