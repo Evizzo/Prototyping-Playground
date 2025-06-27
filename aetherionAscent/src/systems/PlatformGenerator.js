@@ -91,8 +91,8 @@ export class PlatformGenerator {
     if (isLightEmitter) {
       // Create glowing crystal-like platform
       
-      // Base platform
-      texture.fillStyle(color, 1.0);
+      // Base platform - bright and clean
+      texture.fillStyle(0x6a6a8a, 1.0);
       texture.fillRoundedRect(0, 0, width, height, 4);
       
       // Add crystal formations
@@ -112,23 +112,26 @@ export class PlatformGenerator {
       texture.fillRoundedRect(-2, -2, width + 4, height + 4, 6);
       
     } else {
-      // Create standard stone platform
+      // Create clean stone platform for gameplay
       
-      // Base platform
-      texture.fillStyle(color, 1.0);
+      // Base platform - bright and clearly visible
+      texture.fillStyle(0x5a5a6a, 1.0);
       texture.fillRoundedRect(0, 0, width, height, 3);
       
-      // Add texture details (stone-like appearance)
-      texture.fillStyle(color + 0x101010, 0.7);
-      texture.fillRect(5, 2, width - 10, 3);
-      texture.fillRect(8, height - 5, width - 16, 3);
+      // Add simple texture details
+      texture.fillStyle(0x6a6a7a, 1.0);
+      texture.fillRect(2, 2, width - 4, height - 4);
       
-      // Add moss/lichen details
-      texture.fillStyle(0x2d5a2d, 0.6);
-      for (let i = 0; i < 5; i++) {
-        const x = Math.random() * (width - 20) + 10;
-        const mossWidth = Math.random() * 10 + 5;
-        texture.fillEllipse(x, height / 2, mossWidth, 4);
+      // Clean stone edges
+      texture.fillStyle(0x7a7a8a, 1.0);
+      texture.fillRect(0, 0, width, 2); // Top edge
+      texture.fillRect(0, height - 2, width, 2); // Bottom edge
+      
+      // Simple stone block lines for texture
+      for (let i = 0; i < width / 40; i++) {
+        const lineX = i * 40 + 20;
+        texture.fillStyle(0x4a4a5a, 0.7);
+        texture.fillRect(lineX, 2, 1, height - 4);
       }
     }
     
@@ -213,22 +216,22 @@ export class PlatformGenerator {
     let previousX = this.scene.cameras.main.width / 2; // Start from screen center
     
     while (currentY > chunkEndY) {
-      // Calculate next platform position
-      const nextPosition = this.calculateNextPlatformPosition(previousX, currentY);
-      
-      // Determine platform properties
+      // Determine platform properties FIRST
       const platformWidth = Phaser.Math.Between(
         CONFIG.WORLD.PLATFORM_MIN_WIDTH,
         CONFIG.WORLD.PLATFORM_MAX_WIDTH
       );
+      
+      // Calculate next platform position with width for collision avoidance
+      const nextPosition = this.calculateNextPlatformPosition(previousX, currentY, platformWidth);
       
       const isLightEmitter = Math.random() < CONFIG.GENERATION.LIGHT_PLATFORM_CHANCE;
       
       // Create platform
       this.createUnifiedPlatform(nextPosition.x, nextPosition.y, platformWidth, isLightEmitter);
       
-      // Update for next iteration
-      previousX = nextPosition.x + platformWidth / 2;
+      // Update for next iteration - use actual platform center position
+      previousX = nextPosition.x;
       currentY = nextPosition.y;
     }
     
@@ -239,36 +242,47 @@ export class PlatformGenerator {
   }
 
   /**
-   * Calculate next viable platform position
+   * Calculate next viable platform position with collision avoidance
    * @param {number} previousX - X position of previous platform center
    * @param {number} currentY - Current Y position
+   * @param {number} nextPlatformWidth - Width of the platform to be created
    * @returns {object} {x, y} coordinates for next platform
    */
-  calculateNextPlatformPosition(previousX, currentY) {
-    // Ensure all platforms are reachable
+  calculateNextPlatformPosition(previousX, currentY, nextPlatformWidth = CONFIG.WORLD.PLATFORM_MIN_WIDTH) {
+    // Ensure MINIMUM vertical spacing to prevent overlaps
     let verticalGap;
     
     // 70% normal gaps, 30% stepping stones (removed unreachable gaps)
     const gapType = Math.random();
     if (gapType < 0.7) {
-      // Normal reachable jumping distance
-      verticalGap = Phaser.Math.Between(
-        CONFIG.GENERATION.VERTICAL_SPACING_MIN,
-        CONFIG.GENERATION.VERTICAL_SPACING_MAX
+      // Normal reachable jumping distance - ENSURE MINIMUM GAP
+      verticalGap = Math.max(
+        CONFIG.WORLD.PLATFORM_THICKNESS + 20, // Minimum to prevent overlap + safety margin
+        Phaser.Math.Between(
+          CONFIG.GENERATION.VERTICAL_SPACING_MIN,
+          CONFIG.GENERATION.VERTICAL_SPACING_MAX
+        )
       );
     } else {
-      // Easier stepping stones for variety
-      verticalGap = Phaser.Math.Between(40, 55);
+      // Easier stepping stones for variety - ENSURE MINIMUM GAP
+      verticalGap = Math.max(
+        CONFIG.WORLD.PLATFORM_THICKNESS + 20, // Minimum to prevent overlap + safety margin
+        Phaser.Math.Between(40, 55)
+      );
     }
     
     // Smart horizontal positioning for better gameplay
     const maxHorizontalGap = CONFIG.GENERATION.MAX_HORIZONTAL_GAP;
     const minHorizontalGap = CONFIG.GENERATION.MIN_HORIZONTAL_GAP;
     
-    // Ensure platforms stay within screen bounds with margin
-    const screenMargin = 80;
-    const minX = screenMargin;
-    const maxX = this.scene.cameras.main.width - CONFIG.WORLD.PLATFORM_MAX_WIDTH - screenMargin;
+    // Account for platform widths to prevent horizontal overlaps
+    const platformHalfWidth = nextPlatformWidth / 2;
+    const maxPlatformHalfWidth = CONFIG.WORLD.PLATFORM_MAX_WIDTH / 2;
+    
+    // Ensure platforms stay within screen bounds with margin for platform width
+    const screenMargin = Math.max(80, platformHalfWidth + 10);
+    const minX = screenMargin + platformHalfWidth;
+    const maxX = this.scene.cameras.main.width - screenMargin - platformHalfWidth;
     
     // Create reachable patterns with good spacing
     let horizontalOffset;
@@ -286,9 +300,10 @@ export class PlatformGenerator {
       horizontalOffset = Phaser.Math.Between(-minHorizontalGap * 1.2, minHorizontalGap * 1.2);
     }
     
-    // Ensure strategic spacing - no clustering
-    if (Math.abs(horizontalOffset) < minHorizontalGap) {
-      horizontalOffset = horizontalOffset >= 0 ? minHorizontalGap : -minHorizontalGap;
+    // Ensure strategic spacing - no clustering and account for platform widths
+    const minSpacing = Math.max(minHorizontalGap, platformHalfWidth + maxPlatformHalfWidth + 10);
+    if (Math.abs(horizontalOffset) < minSpacing) {
+      horizontalOffset = horizontalOffset >= 0 ? minSpacing : -minSpacing;
     }
     
     let nextX = previousX + horizontalOffset;
@@ -309,6 +324,9 @@ export class PlatformGenerator {
       nextX += this.wallBounceDirection * 20;
       this.wallBounceDirection = null; // Reset
     }
+    
+    // Final bounds check with platform width
+    nextX = Phaser.Math.Clamp(nextX, minX, maxX);
     
     return {
       x: nextX,
@@ -339,6 +357,12 @@ export class PlatformGenerator {
     const screenWidth = this.scene.cameras.main.width;
     const clampedX = Phaser.Math.Clamp(x, 50, screenWidth - 50);
     const clampedWidth = Math.max(width, 60); // Minimum visible width
+    
+    // Check for collisions with existing platforms to prevent overlaps
+    if (this.wouldOverlapExistingPlatform(clampedX, y, clampedWidth, CONFIG.WORLD.PLATFORM_THICKNESS)) {
+      console.warn(`⚠️ Platform would overlap at (${clampedX}, ${y}), skipping creation`);
+      return null;
+    }
 
     try {
       // 🎮 STEP 1: Create physics sprite (always use staticSprite for consistent physics)
@@ -349,13 +373,27 @@ export class PlatformGenerator {
         return null;
       }
 
-      // 🎨 STEP 2: Configure visual appearance
+      // 🎨 STEP 2: Configure visual appearance with high contrast
       platform.setDisplaySize(clampedWidth, CONFIG.WORLD.PLATFORM_THICKNESS);
       platform.setTint(hasLight ? CONFIG.THEME.LIGHT_PLATFORM_COLOR : CONFIG.THEME.PLATFORM_COLOR);
-      platform.setDepth(10);
+      platform.setDepth(15); // Higher depth to ensure visibility over background
       platform.setVisible(true);
       platform.setActive(true);
       platform.setAlpha(1.0);
+      
+      // Add subtle glow effect to make platforms more visible
+      if (this.scene.lights) {
+        // Add a subtle platform outline light for better visibility
+        const outlineLight = this.scene.lights.addLight(
+          platform.x,
+          platform.y - 5, // Slightly above platform
+          clampedWidth * 1.2, // Wider than platform
+          hasLight ? 0x64ffda : 0xffffff, // Cyan for light platforms, white for normal
+          0.3 // Subtle intensity
+        );
+        platform.platformData = platform.platformData || {};
+        platform.platformData.outlineLight = outlineLight;
+      }
 
       // ⚙️ STEP 3: Fix Static Body Alignment Bug (Phaser issue #2470)
       // Static bodies don't handle sprite origin correctly with setSize()
@@ -514,13 +552,18 @@ export class PlatformGenerator {
    * @param {Phaser.GameObjects.Sprite} platform - Platform to destroy
    */
   destroyPlatform(platform) {
-    // Remove lighting
-    if (platform.platformData.light) {
+    // Remove main lighting
+    if (platform.platformData?.light) {
       this.scene.lights.removeLight(platform.platformData.light);
     }
     
+    // Remove outline lighting for visibility
+    if (platform.platformData?.outlineLight) {
+      this.scene.lights.removeLight(platform.platformData.outlineLight);
+    }
+    
     // Remove particles
-    if (platform.platformData.particles) {
+    if (platform.platformData?.particles) {
       platform.platformData.particles.destroy();
     }
     
@@ -611,5 +654,43 @@ export class PlatformGenerator {
     console.log(`💡 Platform light created at (${platform.x}, ${platform.y})`);
     
     return light;
+  }
+
+  /**
+   * Check if a new platform would overlap with existing platforms
+   * @param {number} x - X position (center) of new platform
+   * @param {number} y - Y position (center) of new platform  
+   * @param {number} width - Width of new platform
+   * @param {number} height - Height of new platform
+   * @returns {boolean} True if would overlap, false if safe
+   */
+  wouldOverlapExistingPlatform(x, y, width, height) {
+    // Calculate bounds of new platform
+    const newLeft = x - width / 2;
+    const newRight = x + width / 2;
+    const newTop = y - height / 2;
+    const newBottom = y + height / 2;
+    
+    // Check against all existing platforms
+    for (const platform of this.platforms) {
+      if (!platform || !platform.body) continue;
+      
+      // Get existing platform bounds
+      const existingLeft = platform.body.x;
+      const existingRight = platform.body.x + platform.body.width;
+      const existingTop = platform.body.y;
+      const existingBottom = platform.body.y + platform.body.height;
+      
+      // Check for overlap using axis-aligned bounding box collision
+      const xOverlap = newLeft < existingRight && newRight > existingLeft;
+      const yOverlap = newTop < existingBottom && newBottom > existingTop;
+      
+      if (xOverlap && yOverlap) {
+        console.warn(`🚫 Collision detected with existing platform at (${platform.x}, ${platform.y})`);
+        return true; // Overlap detected
+      }
+    }
+    
+    return false; // No overlap
   }
 } 

@@ -75,7 +75,7 @@ export const CONFIG = {
   CAMERA: {
     FOLLOW_SPEED: 0.08,              // Smooth camera following (lower = smoother)
     OFFSET_Y: -120,                  // Keep player slightly below screen center
-    SHAKE_INTENSITY: 5,              // Screen shake magnitude
+    SHAKE_INTENSITY: 7,              // Screen shake magnitude
     SHAKE_DURATION: 200              // Screen shake duration in ms
   },
 
@@ -94,7 +94,7 @@ export const CONFIG = {
    * Platform generation rules
    */
   GENERATION: {
-    LIGHT_PLATFORM_CHANCE: 0.35,    // Probability a platform emits light
+    LIGHT_PLATFORM_CHANCE: 0.15,    // Reduced from 0.35 to 0.15 for better performance (fewer lights)
     MIN_HORIZONTAL_GAP: 60,          // Minimum horizontal distance between platforms - increased for more challenge
     MAX_HORIZONTAL_GAP: 120,         // Maximum horizontal distance between platforms - increased but still reachable
     VERTICAL_SPACING_MIN: 80,        // Minimum vertical gap between platforms - increased (2.5x player height)
@@ -111,8 +111,8 @@ export const CONFIG = {
    */
   THEME: {
     VOID_COLOR: 0x2d1b69,           // Deep purple void energy
-    PLATFORM_COLOR: 0x2a2a4a,       // Dark stone platform color
-    LIGHT_PLATFORM_COLOR: 0x3a3a6a, // Slightly brighter for light-emitting platforms
+    PLATFORM_COLOR: 0x9e9e9e,       // Bright silver-gray stone platform - high contrast against dark cave
+    LIGHT_PLATFORM_COLOR: 0xbdbdbd, // Very bright crystal platform with light blue tint - stands out clearly
     BACKGROUND_GRADIENT_TOP: 0x1a1a2e,
     BACKGROUND_GRADIENT_BOTTOM: 0x0f0f1a,
     PARTICLE_COLORS: [               // Available particle colors
@@ -161,6 +161,107 @@ export const CONFIG = {
     BONUS_COIN_VALUE: 100,           // Special coin bonus value
     COMBO_MULTIPLIER: 1.5,           // Score multiplier for coin combos
     COMBO_TIME_WINDOW: 2000          // Time window for combo collection (ms)
+  },
+
+  /**
+   * Background system configuration
+   */
+  BACKGROUND: {
+    CHUNK_HEIGHT: 800,               // Height of each background chunk
+    GENERATION_DISTANCE: 1200,       // Distance ahead to generate background
+    MAX_VISIBLE_CHUNKS: 8,           // Maximum background chunks to keep active
+    PARALLAX_SPEEDS: {               // Movement speeds for different layers
+      far: 0.1,                     // Distant mountains, structures
+      mid: 0.3,                     // Medium distance elements  
+      near: 0.6,                    // Foreground details
+      particles: 0.8                // Atmospheric particles
+    },
+    THEMES: {                        // Progressive theme configuration
+      ancient_ruins: {
+        heightRange: [0, 2000],
+        colors: {
+          primary: 0x2a2a4a,
+          secondary: 0x64ffda,
+          accent: 0x8d6e63
+        },
+        elements: {
+          pillars: 5,
+          ruins: 4,
+          mountains: 3
+        }
+      },
+      crystal_caverns: {
+        heightRange: [2000, 4000],
+        colors: {
+          primary: 0x7c4dff,
+          secondary: 0x64ffda,
+          accent: 0x00e676
+        },
+        elements: {
+          crystals: 6,
+          smallCrystals: 8,
+          caveWalls: 1
+        }
+      },
+      sky_temples: {
+        heightRange: [4000, 6000],
+        colors: {
+          primary: 0x3a3a6a,
+          secondary: 0xe3f2fd,
+          accent: 0x64ffda
+        },
+        elements: {
+          temples: 3,
+          clouds: 4,
+          artifacts: 6
+        }
+      },
+      celestial_realm: {
+        heightRange: [6000, 999999],
+        colors: {
+          primary: 0x9c27b0,
+          secondary: 0xe91e63,
+          accent: 0xff6d00
+        },
+        elements: {
+          stars: 50,
+          energyStreams: 5,
+          orbs: 4
+        }
+      }
+    },
+    PARTICLES: {                     // Theme-specific particle configurations
+      ancient_dust: {
+        speed: [5, 15],
+        scale: [0.1, 0.4],
+        colors: [0x8d6e63, 0xa1887f, 0xbcaaa4],
+        frequency: 100
+      },
+      crystal_sparkles: {
+        speed: [10, 30],
+        scale: [0.2, 0.6],
+        colors: [0x7c4dff, 0x64ffda, 0x00e676],
+        frequency: 80
+      },
+      sky_wisps: {
+        speed: [20, 50],
+        scale: [0.3, 0.8],
+        colors: [0xe3f2fd, 0xbbdefb, 0x90caf9],
+        frequency: 60
+      },
+      cosmic_energy: {
+        speed: [15, 40],
+        scale: [0.4, 1.0],
+        colors: [0x9c27b0, 0xe91e63, 0xff6d00],
+        frequency: 40
+      }
+    },
+    LIGHTING: {                      // Background lighting effects
+      crystal_intensity: 0.6,
+      orb_intensity: 0.8,
+      atmospheric_radius: 80,
+      orb_radius: 120
+    }
   },
 };
 

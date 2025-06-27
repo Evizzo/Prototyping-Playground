@@ -4,6 +4,7 @@ import { PlatformGenerator } from '../systems/PlatformGenerator.js';
 import { Player } from '../entities/Player.js';
 import { ScoringSystem } from '../systems/ScoringSystem.js';
 import { CoinSystem } from '../systems/CoinSystem.js';
+import { BackgroundSystem } from '../systems/BackgroundSystem.js';
 
 // Import shaders as text
 import bloomShader from '../shaders/bloom.frag?raw';
@@ -40,6 +41,7 @@ export class GameScene extends Phaser.Scene {
     this.player = null;
     this.scoringSystem = null;
     this.coinSystem = null;
+    this.backgroundSystem = null;
     
     // Visual systems
     this.backgroundLayers = [];
@@ -95,8 +97,7 @@ export class GameScene extends Phaser.Scene {
     this.setupLightingPipeline();
     this.setupPostProcessingPipeline();
     
-    // Create world environment
-    this.createBackground();
+    // Create world environment (now handled by BackgroundSystem)
     this.createAmbientParticles();
     
     // Initialize core game systems
@@ -340,53 +341,9 @@ export class GameScene extends Phaser.Scene {
     };
   }
 
-  /**
-   * Create layered background for depth and atmosphere
-   */
-  createBackground() {
-    console.log('🏛️ Creating mystical background...');
-    
-    // Simplified background to prevent visual glitches
-    const background = this.add.graphics();
-    background.setDepth(-100);
-    
-    // Simple gradient background
-    background.fillGradientStyle(0x1a1a2e, 0x1a1a2e, 0x0f0f1a, 0x0f0f1a, 1.0);
-    background.fillRect(0, 0, CONFIG.GAME.WIDTH, CONFIG.GAME.HEIGHT);
-    
-    // Add mystical architectural elements
-    this.createBackgroundArchitecture();
-    
-    this.backgroundLayers.push(background);
-  }
-
-  /**
-   * Create background architectural elements for depth
-   */
-  createBackgroundArchitecture() {
-    // Ancient pillars and ruins in the background
-    for (let i = 0; i < 5; i++) {
-      const pillar = this.add.graphics();
-      pillar.setDepth(-90 + i);
-      
-      const x = (CONFIG.GAME.WIDTH / 6) * (i + 1);
-      const height = Phaser.Math.Between(300, 600);
-      const width = 20 + (i * 5); // Parallax effect through width variation
-      
-      // Create pillar with mystical details
-      pillar.fillStyle(0x2a2a4a, 0.3 + (i * 0.1));
-      pillar.fillRect(x - width/2, CONFIG.GAME.HEIGHT - height, width, height);
-      
-      // Add glowing runes
-      pillar.fillStyle(0x64ffda, 0.2);
-      for (let j = 0; j < 3; j++) {
-        const runeY = CONFIG.GAME.HEIGHT - height + (j * height / 4) + 50;
-        pillar.fillCircle(x, runeY, 3);
-      }
-      
-      this.backgroundLayers.push(pillar);
-    }
-  }
+  // Note: Background creation is now handled by BackgroundSystem
+  // The old createBackground() and createBackgroundArchitecture() methods
+  // have been replaced with the new infinite, progressive background system
 
   /**
    * Create ambient particle system for atmosphere - DISABLED FOR PHASE 1
@@ -417,6 +374,9 @@ export class GameScene extends Phaser.Scene {
     
     // Initialize platform generator with coin system reference
     this.platformGenerator = new PlatformGenerator(this, this.voidSystem, this.coinSystem);
+    
+    // Initialize background system
+    this.backgroundSystem = new BackgroundSystem(this);
     
     console.log('✅ Core systems initialized');
   }
@@ -606,6 +566,11 @@ export class GameScene extends Phaser.Scene {
       this.platformGenerator.update(this.cameras.main.scrollY);
     }
     
+    // Background system updates - infinite progressive backgrounds
+    if (this.backgroundSystem) {
+      this.backgroundSystem.update(this.cameras.main.scrollY);
+    }
+    
     // Light culling disabled for now
     // if (this.lightManager) {
     //   this.lightManager.updateLightCulling(this.cameras.main.scrollY);
@@ -688,6 +653,9 @@ export class GameScene extends Phaser.Scene {
     // Get scoring stats from centralized system
     const scoringStats = this.scoringSystem ? this.scoringSystem.getStats() : null;
     
+    // Get background system stats
+    const backgroundStats = this.backgroundSystem ? this.backgroundSystem.getStats() : null;
+    
     const debugInfo = [
       `FPS: ${fps}`,
       `Camera: (${Math.round(this.cameras.main.scrollX)}, ${Math.round(this.cameras.main.scrollY)})`,
@@ -703,6 +671,8 @@ export class GameScene extends Phaser.Scene {
       `Platforms: ${this.performanceMetrics.platformCount}`,
       `Lights: ${this.performanceMetrics.lightCount}`,
       `Particles: ${this.performanceMetrics.particleCount}`,
+      `🎨 Background: ${backgroundStats ? backgroundStats.currentTheme : 'N/A'}`,
+      `📦 BG Chunks: ${backgroundStats ? backgroundStats.chunksActive : 0}`,
       ``,
       `Controls:`,
       `WASD/Arrow Keys - Move`,
@@ -738,6 +708,10 @@ export class GameScene extends Phaser.Scene {
     
     if (this.platformGenerator) {
       this.platformGenerator.destroy();
+    }
+    
+    if (this.backgroundSystem) {
+      this.backgroundSystem.destroy();
     }
     
     // Clean up visual elements
