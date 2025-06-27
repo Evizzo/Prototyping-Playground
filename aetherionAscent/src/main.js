@@ -34,7 +34,7 @@ const gameConfig = {
     default: 'arcade',
     arcade: {
       gravity: { y: CONFIG.WORLD.GRAVITY },
-      debug: false, // Set to true for physics debugging
+      debug: true, // Debug enabled - shows collision wireframes
       checkCollision: {
         up: true,
         down: true,

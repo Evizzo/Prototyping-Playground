@@ -31,6 +31,12 @@ export class PlatformGenerator {
     this.lightEmitterPlatforms = [];
     this.nextChunkY = 0; // Y position for next chunk generation
     
+    // Create physics group for platform collisions
+    this.platformGroup = this.scene.physics.add.staticGroup();
+    
+    // Also store reference in scene for easy access
+    this.scene.platformGroup = this.platformGroup;
+    
     // Generation state tracking
     this.lastGeneratedY = this.scene.cameras.main.height;
     this.chunksGenerated = 0;
@@ -38,6 +44,13 @@ export class PlatformGenerator {
     // Performance optimization
     this.maxActivePlatforms = CONFIG.PERFORMANCE.MAX_VISIBLE_PLATFORMS;
     this.lastDestructionCheck = 0;
+    
+    // Stats tracking
+    this.stats = {
+      totalPlatforms: 0,
+      lightEmitterPlatforms: 0,
+      chunksGenerated: 0
+    };
     
     // Platform textures (will be created procedurally)
     this.createPlatformTextures();
@@ -122,8 +135,6 @@ export class PlatformGenerator {
     texture.destroy();
   }
 
-
-
   /**
    * Generate initial platform chunks
    */
@@ -158,7 +169,7 @@ export class PlatformGenerator {
     const startX = this.scene.cameras.main.width / 2 - fullWidth / 2;
     
     // Force creation of solid platform (no gaps allowed for starting platform)
-    this.createSolidPlatform(startX, startY, fullWidth, false);
+    this.createUnifiedPlatform(startX, startY, fullWidth, false);
     this.lastGeneratedY = startY;
     this.nextChunkY = startY - CONFIG.WORLD.CHUNK_HEIGHT;
   }
@@ -180,7 +191,7 @@ export class PlatformGenerator {
     ];
     
     starterPlatforms.forEach(platform => {
-      this.createPlatform(platform.x, platform.y, platform.width, platform.light);
+      this.createUnifiedPlatform(platform.x, platform.y, platform.width, platform.light);
     });
   }
 
@@ -207,7 +218,7 @@ export class PlatformGenerator {
       const isLightEmitter = Math.random() < CONFIG.GENERATION.LIGHT_PLATFORM_CHANCE;
       
       // Create platform
-      this.createPlatform(nextPosition.x, nextPosition.y, platformWidth, isLightEmitter);
+      this.createUnifiedPlatform(nextPosition.x, nextPosition.y, platformWidth, isLightEmitter);
       
       // Update for next iteration
       previousX = nextPosition.x + platformWidth / 2;
@@ -299,204 +310,117 @@ export class PlatformGenerator {
   }
 
   /**
-   * Create a single platform with all associated systems
+   * 🏗️ UNIFIED PLATFORM CREATION METHOD
+   * This is the ONLY method that should create platforms in the entire game.
+   * All platform creation flows through here for consistency.
+   * 
    * @param {number} x - X position
-   * @param {number} y - Y position
+   * @param {number} y - Y position  
    * @param {number} width - Platform width
-   * @param {boolean} isLightEmitter - Whether platform emits light
+   * @param {boolean} hasLight - Whether platform emits light
+   * @param {object} options - Additional options for platform customization
+   * @returns {Phaser.Physics.Arcade.Sprite} The created platform
    */
-  createPlatform(x, y, width, isLightEmitter) {
-    // Temporarily disable gap system to fix invisible platforms
-    // TODO: Re-implement gap system with proper positioning
-    return this.createSolidPlatform(x, y, width, isLightEmitter);
-  }
-
-  /**
-   * Create a solid platform without gaps
-   */
-  createSolidPlatform(x, y, width, isLightEmitter) {
-    // Validate inputs to prevent invisible platforms
+  createUnifiedPlatform(x, y, width, hasLight = false, options = {}) {
+    // Validate inputs to prevent invalid platforms
     if (x === undefined || y === undefined || !width || width <= 0) {
-      console.warn('Invalid platform parameters:', { x, y, width });
+      console.warn('❌ Invalid platform parameters:', { x, y, width });
       return null;
     }
-    
+
     // Ensure platform stays within reasonable bounds
     const screenWidth = this.scene.cameras.main.width;
     const clampedX = Phaser.Math.Clamp(x, 50, screenWidth - 50);
     const clampedWidth = Math.max(width, 60); // Minimum visible width
-    
+
     try {
-      // Create platform sprite
-      const textureKey = isLightEmitter ? 'lightPlatform' : 'platform';
-      const platform = this.scene.physics.add.staticSprite(clampedX, y, textureKey);
+      // 🎮 STEP 1: Create physics sprite (always use staticSprite for consistent physics)
+      const platform = this.scene.physics.add.staticSprite(clampedX, y, 'platform');
       
-      // Validate that the sprite was created properly
       if (!platform || !platform.body) {
-        console.error('Failed to create platform sprite or physics body');
+        console.error('❌ Failed to create platform sprite or physics body');
         return null;
       }
-      
-      // Scale platform to desired width
-      const scaleX = clampedWidth / CONFIG.WORLD.PLATFORM_MAX_WIDTH;
-      platform.setScale(scaleX, 1);
-      
-      // Set physics body to match visual size
-      platform.body.setSize(clampedWidth, CONFIG.WORLD.PLATFORM_THICKNESS);
-      platform.body.setOffset(0, 0); // Reset any offset issues
-      
-      // Set render depth to ensure visibility
-      platform.setDepth(1);
-      
-      // Make sure platform is visible and has proper alpha
+
+      // 🎨 STEP 2: Configure visual appearance
+      platform.setDisplaySize(clampedWidth, CONFIG.WORLD.PLATFORM_THICKNESS);
+      platform.setTint(hasLight ? CONFIG.THEME.LIGHT_PLATFORM_COLOR : CONFIG.THEME.PLATFORM_COLOR);
+      platform.setDepth(10);
       platform.setVisible(true);
       platform.setActive(true);
-      platform.setAlpha(1.0); // Fully opaque
+      platform.setAlpha(1.0);
+
+      // ⚙️ STEP 3: Fix Static Body Alignment Bug (Phaser issue #2470)
+      // Static bodies don't handle sprite origin correctly with setSize()
+      // We need to manually position the body to match the visual exactly
       
-      // Add bright debug tint to make all platforms clearly visible
-      platform.setTint(isLightEmitter ? 0xffffff : 0xaaaaaa);
+      // Calculate where the physics body should be positioned
+      const visualLeft = platform.x - (platform.displayWidth / 2);
+      const visualTop = platform.y - (platform.displayHeight / 2);
       
-      // Platform data
+      // Set physics body size first
+      platform.body.setSize(clampedWidth, CONFIG.WORLD.PLATFORM_THICKNESS);
+      
+      // Manual body positioning to fix static body alignment bug
+      platform.body.position.x = visualLeft;
+      platform.body.position.y = visualTop;
+      
+      // Update body center after manual positioning
+      platform.body.updateCenter();
+
+      // 📊 STEP 4: Setup platform data (unified data structure)
       platform.platformData = {
-        isLightEmitter: isLightEmitter,
+        isLightEmitter: hasLight,
         width: clampedWidth,
         creationTime: this.scene.time.now,
         light: null,
-        hasGap: false,
+        hasGap: options.hasGap || false,
         originalX: x,
-        clampedX: clampedX
+        clampedX: clampedX,
+        platformType: options.type || 'normal', // 'starting', 'normal', 'gap'
+        ...options // Merge any additional options
       };
-      
-      // Add to platform list
+
+      // 🏗️ STEP 5: Add to unified platform management
       this.platforms.push(platform);
-      
-      // Setup lighting if this is a light emitter
-      if (isLightEmitter) {
-        this.setupPlatformLighting(platform);
+      this.platformGroup.add(platform);
+
+      // 💡 STEP 6: Setup lighting if needed
+      if (hasLight) {
+        this.createPlatformLight(platform);
         this.lightEmitterPlatforms.push(platform);
       }
-      
-      // Setup platform physics group (for player collision)
-      if (!this.scene.platformGroup) {
-        this.scene.platformGroup = this.scene.physics.add.staticGroup();
+
+      // 📈 STEP 7: Update statistics
+      this.stats.totalPlatforms++;
+      if (hasLight) {
+        this.stats.lightEmitterPlatforms++;
       }
-      this.scene.platformGroup.add(platform);
-      
-      // Debug output for every platform
-      console.log(`✅ Platform created: pos(${clampedX}, ${y}), size(${clampedWidth}x${CONFIG.WORLD.PLATFORM_THICKNESS}), visible: ${platform.visible}, alpha: ${platform.alpha}`);
+
+      // 🔍 STEP 8: Debug logging for verification
+      console.log(`✅ UNIFIED Platform created: pos(${clampedX}, ${y}), visual(${platform.displayWidth}x${platform.displayHeight}), physics(${platform.body.width}x${platform.body.height}), body pos(${Math.round(platform.body.x)}, ${Math.round(platform.body.y)}), light: ${hasLight}`);
       
       return platform;
-      
+
     } catch (error) {
-      console.error('Error creating platform:', error);
+      console.error('❌ Error in unified platform creation:', error);
       return null;
     }
   }
 
   /**
-   * Create a platform with a gap in the middle for jumping through
-   */
-  createPlatformWithGap(x, y, width, isLightEmitter) {
-    const gapWidth = Phaser.Math.Between(CONFIG.GENERATION.GAP_WIDTH_MIN, CONFIG.GENERATION.GAP_WIDTH_MAX);
-    const leftWidth = (width - gapWidth) * 0.5;
-    const rightWidth = width - gapWidth - leftWidth;
-    
-    // Create left piece
-    const leftPlatform = this.createSolidPlatform(x - gapWidth/2 - rightWidth/2, y, leftWidth, isLightEmitter);
-    
-    // Create right piece  
-    const rightPlatform = this.createSolidPlatform(x + gapWidth/2 + leftWidth/2, y, rightWidth, isLightEmitter);
-    
-    // Mark both pieces as having gaps
-    leftPlatform.platformData.hasGap = true;
-    rightPlatform.platformData.hasGap = true;
-    leftPlatform.platformData.gapPartner = rightPlatform;
-    rightPlatform.platformData.gapPartner = leftPlatform;
-    
-    // Create visual gap indicator (subtle glow effect)
-    this.createGapIndicator(x, y, gapWidth);
-    
-    return leftPlatform; // Return one for reference
-  }
-
-  /**
-   * Create a visual indicator for platform gaps
-   */
-  createGapIndicator(x, y, gapWidth) {
-    // Create subtle particle effects to show the gap
-    const gapParticles = this.scene.add.particles(x, y + 5, 'particle', {
-      speed: { min: 2, max: 8 },
-      scale: { start: 0.2, end: 0 },
-      lifespan: { min: 1000, max: 2000 },
-      alpha: { start: 0.4, end: 0 },
-      tint: 0x64ffda, // Cyan to match player light
-      frequency: 200,
-      quantity: 1,
-      emitZone: { type: 'edge', source: new Phaser.Geom.Rectangle(-gapWidth/2, -5, gapWidth, 10), quantity: 2 }
-    });
-    
-    gapParticles.setDepth(-1);
-    
-    // Store reference for cleanup
-    if (!this.gapIndicators) {
-      this.gapIndicators = [];
-    }
-    this.gapIndicators.push(gapParticles);
-  }
-
-  /**
-   * Setup dynamic lighting for light-emitting platforms
-   * @param {Phaser.GameObjects.Sprite} platform - The platform sprite
-   */
-  setupPlatformLighting(platform) {
-    // Create light at platform position
-    const light = this.scene.lights.addLight(
-      platform.x,
-      platform.y - CONFIG.WORLD.PLATFORM_THICKNESS / 2,
-      CONFIG.LIGHTING.PLATFORM_LIGHT_RADIUS,
-      getRandomPlatformLightColor(),
-      CONFIG.LIGHTING.PLATFORM_LIGHT_INTENSITY
-    );
-    
-    // Store light reference
-    platform.platformData.light = light;
-    
-    // Add subtle particle effects
-    this.createPlatformParticles(platform);
-  }
-
-  /**
-   * Create particle effects for light-emitting platforms
-   * @param {Phaser.GameObjects.Sprite} platform - The platform sprite
-   */
-  createPlatformParticles(platform) {
-    const particles = this.scene.add.particles(platform.x, platform.y - 10, 'particle', {
-      speed: { min: 5, max: 15 },
-      scale: { start: 0.1, end: 0 },
-      lifespan: { min: 2000, max: 3000 },
-      alpha: { start: 0.6, end: 0 },
-      tint: platform.platformData.light.color,
-      frequency: 300,
-      quantity: 1
-    });
-    
-    particles.setDepth(-1);
-    platform.platformData.particles = particles;
-  }
-
-  /**
-   * Main update loop - DISABLED FOR PHASE 1 STABILITY
+   * Main update loop - RE-ENABLED FOR PHASE 2
    * @param {number} cameraY - Current camera Y position
    */
   update(cameraY) {
-    // PHASE 1: DISABLE ALL PLATFORM UPDATES TO PREVENT TELEPORTING
-    // Static platform generation only
+    // PHASE 2: RE-ENABLE PLATFORM GENERATION AS PLAYER CLIMBS
+    this.checkForNewChunkGeneration(cameraY);
     
-    // this.checkForNewChunkGeneration(cameraY);
+    // Keep other systems disabled for now
     // this.updatePlatformLighting();
     // this.destroyPlatformsBelowVoid();
     
-    // Platform system is now completely static for Phase 1
+    // Platform generation is now active but other updates remain static
   }
 
   /**
@@ -627,5 +551,30 @@ export class PlatformGenerator {
     // Clear arrays
     this.platforms = [];
     this.lightEmitterPlatforms = [];
+  }
+
+  /**
+   * Create lighting if this is a light-emitting platform
+   * @param {Phaser.Physics.Arcade.Sprite} platform - The platform sprite
+   */
+  createPlatformLight(platform) {
+    // Create light at platform position using correct Phaser 3.80.1 API
+    const light = this.scene.lights.addLight(
+      platform.x,
+      platform.y - CONFIG.WORLD.PLATFORM_THICKNESS / 2,
+      CONFIG.LIGHTING.PLATFORM_LIGHT_RADIUS,
+      CONFIG.LIGHTING.PLATFORM_LIGHT_COLORS[0], // Use first color as default
+      CONFIG.LIGHTING.PLATFORM_LIGHT_INTENSITY
+    );
+    
+    // Store light reference in platform data
+    if (!platform.platformData) {
+      platform.platformData = {};
+    }
+    platform.platformData.light = light;
+    
+    console.log(`💡 Platform light created at (${platform.x}, ${platform.y})`);
+    
+    return light;
   }
 } 

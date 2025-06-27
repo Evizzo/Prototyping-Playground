@@ -55,8 +55,17 @@ export class GameScene extends Phaser.Scene {
       right: CONFIG.GAME.WIDTH
     };
     
+    // Height tracking and scoring (Icy Tower style)
+    this.gameStats = {
+      currentHeight: 0,
+      maxHeight: 0,
+      startingY: 0,
+      score: 0,
+      platformsReached: 0
+    };
+    
     // Debug and performance
-    this.debugMode = false;
+    this.debugMode = true;
     this.performanceMetrics = {
       platformCount: 0,
       particleCount: 0,
@@ -115,6 +124,7 @@ export class GameScene extends Phaser.Scene {
     // This ensures platforms are created before setting up collisions
     this.time.delayedCall(100, () => {
       this.createPlayer();
+      this.createScoreDisplay();
     });
     
     console.log('✨ Mystical world created successfully!');
@@ -161,6 +171,20 @@ export class GameScene extends Phaser.Scene {
     playerGfx.generateTexture('player', 24, 32);
     playerGfx.destroy();
     
+    // Create platform texture
+    const platformTexture = this.add.graphics();
+    platformTexture.fillStyle(CONFIG.THEME.PLATFORM_COLOR);
+    platformTexture.fillRect(0, 0, 200, CONFIG.WORLD.PLATFORM_THICKNESS);
+    platformTexture.generateTexture('platform', 200, CONFIG.WORLD.PLATFORM_THICKNESS);
+    platformTexture.destroy();
+    
+    // DEBUG: Verify texture was created
+    if (this.textures.exists('platform')) {
+      console.log('✅ Platform texture created successfully');
+    } else {
+      console.error('❌ Platform texture creation failed!');
+    }
+    
     console.log('✅ Basic textures created');
   }
 
@@ -177,13 +201,26 @@ export class GameScene extends Phaser.Scene {
     // Set player as camera target
     this.cameraTarget = this.player;
     
+    // Initialize height tracking
+    this.gameStats.startingY = startY;
+    this.gameStats.currentHeight = 0;
+    this.gameStats.maxHeight = 0;
+    
     // Setup physics collisions between player and platform GROUP
-    // The platform group is stored in this.platformGroup by the generator
+    // The platform group is now created by the PlatformGenerator
     if (this.platformGroup) {
       this.physics.add.collider(this.player, this.platformGroup);
       console.log('✅ Player collision set up with platform group');
     } else {
-      console.warn('⚠️ Platform group not found - will be created by generator');
+      console.warn('⚠️ Platform group not found - collision will be set up when generator creates it');
+      
+      // Set up collision after a short delay to ensure generator has run
+      this.time.delayedCall(200, () => {
+        if (this.platformGroup) {
+          this.physics.add.collider(this.player, this.platformGroup);
+          console.log('✅ Player collision set up with platform group (delayed)');
+        }
+      });
     }
     
     console.log('🦸 Player character created and ready for adventure!');
@@ -456,6 +493,33 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
+   * Create on-screen score display
+   */
+  createScoreDisplay() {
+    // Height display
+    this.heightText = this.add.text(20, 20, 'HEIGHT: 0', {
+      fontFamily: 'Arial',
+      fontSize: '24px',
+      fill: '#64ffda',
+      backgroundColor: 'rgba(26, 26, 46, 0.7)',
+      padding: { x: 10, y: 5 }
+    });
+    this.heightText.setDepth(1000);
+    this.heightText.setScrollFactor(0); // Fixed to camera
+    
+    // Score display
+    this.scoreText = this.add.text(20, 60, 'SCORE: 0', {
+      fontFamily: 'Arial',
+      fontSize: '20px',
+      fill: '#ffd700',
+      backgroundColor: 'rgba(26, 26, 46, 0.7)',
+      padding: { x: 10, y: 5 }
+    });
+    this.scoreText.setDepth(1000);
+    this.scoreText.setScrollFactor(0); // Fixed to camera
+  }
+
+  /**
    * Main update loop - orchestrates all systems
    * @param {number} time - Total elapsed time
    * @param {number} delta - Time since last frame
@@ -510,9 +574,9 @@ export class GameScene extends Phaser.Scene {
     // Smooth camera following with configurable lerp speed
     const lerpSpeed = CONFIG.CAMERA.FOLLOW_SPEED * deltaTime;
     
-    // Calculate target camera position
+    // Calculate target camera position with offset (keep player slightly below center)
     const targetX = this.cameraTarget.x - CONFIG.GAME.WIDTH / 2;
-    const targetY = this.cameraTarget.y - CONFIG.GAME.HEIGHT / 2;
+    const targetY = this.cameraTarget.y - CONFIG.GAME.HEIGHT / 2 + CONFIG.CAMERA.OFFSET_Y;
     
     // Current camera position
     const currentX = this.cameras.main.scrollX;
@@ -537,22 +601,53 @@ export class GameScene extends Phaser.Scene {
     // Update player
     if (this.player) {
       this.player.update(deltaTime);
+      
+      // Update height tracking (Icy Tower style)
+      this.updateHeightTracking();
     }
     
     // Void system updates still disabled for stability
+    // TO RE-ENABLE VOID: Uncomment the lines below when movement feels good
     // if (this.voidSystem) {
     //   this.voidSystem.update(deltaTime, this.cameraTarget.y);
     // }
     
-    // Platform generator updates still disabled for stability
-    // if (this.platformGenerator) {
-    //   this.platformGenerator.update(this.cameras.main.scrollY);
-    // }
+    // Platform generator updates - RE-ENABLE FOR PHASE 2
+    if (this.platformGenerator) {
+      this.platformGenerator.update(this.cameras.main.scrollY);
+    }
     
     // Light culling disabled for now
     // if (this.lightManager) {
     //   this.lightManager.updateLightCulling(this.cameras.main.scrollY);
     // }
+  }
+
+  /**
+   * Update height tracking and scoring system
+   */
+  updateHeightTracking() {
+    if (!this.player) return;
+    
+    // Calculate current height (negative Y means higher up)
+    this.gameStats.currentHeight = Math.max(0, this.gameStats.startingY - this.player.y);
+    
+    // Track maximum height reached
+    if (this.gameStats.currentHeight > this.gameStats.maxHeight) {
+      this.gameStats.maxHeight = this.gameStats.currentHeight;
+      
+      // Award points for new height records (Icy Tower style)
+      const heightScore = Math.floor(this.gameStats.maxHeight / 10);
+      this.gameStats.score = heightScore;
+    }
+    
+    // Update on-screen displays
+    if (this.heightText) {
+      this.heightText.setText(`HEIGHT: ${Math.round(this.gameStats.currentHeight)}`);
+    }
+    if (this.scoreText) {
+      this.scoreText.setText(`SCORE: ${this.gameStats.score}`);
+    }
   }
 
   /**
@@ -622,6 +717,11 @@ export class GameScene extends Phaser.Scene {
       `FPS: ${fps}`,
       `Camera: (${Math.round(this.cameras.main.scrollX)}, ${Math.round(this.cameras.main.scrollY)})`,
       playerInfo,
+      ``,
+      `📏 HEIGHT: ${Math.round(this.gameStats.currentHeight)}px`,
+      `🏆 MAX HEIGHT: ${Math.round(this.gameStats.maxHeight)}px`,
+      `⭐ SCORE: ${this.gameStats.score}`,
+      ``,
       `Void Y: ${voidY}`,
       `Void Speed: ${voidSpeed}`,
       `Platforms: ${this.performanceMetrics.platformCount}`,
