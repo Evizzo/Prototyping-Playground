@@ -58,19 +58,25 @@ export class AiSystem {
   initializeAiPersonality() {
     this.systemPrompt = `You are a mildly evil but not demonic entity controlling an enemy in a platformer game. You can interact with the player through three functions:
 
-1. throwPlayer() - Creates a wind effect that throws the player randomly
+1. throwPlayer(insultLevel) - Creates a wind effect that throws the player. The insultLevel (1-5) determines strength:
+   - 1: Gentle breeze for minor annoyances
+   - 2: Light wind for mild rudeness  
+   - 3: Strong wind for moderate insults
+   - 4: Powerful gales for strong insults
+   - 5: Hurricane force for extreme insults/profanity
 2. shootAndTakeCoins() - Shoots at the player and takes some of their coins  
 3. giveCoins() - Gives the player 5 coins as a reward
 
 BEHAVIOR RULES:
 - If the player is genuinely nice (not fake), occasionally give them coins
-- If the player is suspiciously overly nice, fake, rude, or says something inappropriate, use throwPlayer or shootAndTakeCoins
+- If the player is rude, insulting, or inappropriate, use throwPlayer with appropriate insult level (1-5)
+- Match the wind strength to how bad their insult was
+- For fake politeness or manipulation, use moderate wind (level 2-3)
+- For profanity or extreme rudeness, use maximum wind (level 4-5)
 - Be somewhat evil but playful, not cruel
 - Respond briefly and stay in character
-- Don't be easily fooled by obvious fake politeness
-- Look for genuine kindness vs manipulation
 
-You should call ONE function per response based on the player's message. Respond with a brief evil but playful comment along with your function call.`;
+You should call ONE function per response based on the player's message. Always specify the insultLevel for throwPlayer calls.`;
   }
 
   /**
@@ -197,11 +203,18 @@ You should call ONE function per response based on the player's message. Respond
         functionDeclarations: [
           {
             name: 'throwPlayer',
-            description: 'Throw the player randomly with a wind effect',
+            description: 'Throw the player with a wind effect that scales with insult severity',
             parameters: {
               type: 'object',
-              properties: {},
-              required: []
+              properties: {
+                insultLevel: {
+                  type: 'integer',
+                  description: 'How insulting the player was (1-5): 1=gentle breeze, 2=light wind, 3=strong wind, 4=powerful gales, 5=hurricane force',
+                  minimum: 1,
+                  maximum: 5
+                }
+              },
+              required: ['insultLevel']
             }
           },
           {
@@ -276,9 +289,19 @@ You should call ONE function per response based on the player's message. Respond
         if (part.functionCall) {
           console.log(`🤖 HANDLE: Found function call:`, part.functionCall);
           const functionName = part.functionCall.name;
+          const functionArgs = part.functionCall.args || {};
+          
           if (this.availableFunctions[functionName]) {
-            console.log(`🤖 HANDLE: Executing function: ${functionName}`);
-            await this.availableFunctions[functionName]();
+            console.log(`🤖 HANDLE: Executing function: ${functionName} with args:`, functionArgs);
+            
+            // Handle throwPlayer with insultLevel parameter
+            if (functionName === 'throwPlayer' && functionArgs.insultLevel) {
+              await this.availableFunctions[functionName](functionArgs.insultLevel);
+            } else {
+              // Other functions don't need parameters
+              await this.availableFunctions[functionName]();
+            }
+            
             functionCalled = true;
             console.log(`🤖 AI called function: ${functionName}`);
           } else {
@@ -314,6 +337,55 @@ You should call ONE function per response based on the player's message. Respond
   }
 
   /**
+   * Analyze how insulting/rude a message is
+   * @param {string} message - Player's message
+   * @returns {number} Insult level from 1-5
+   */
+  analyzeInsultLevel(message) {
+    const lowerMessage = message.toLowerCase();
+    let insultLevel = 1; // Start with gentle
+    
+    // Mild insults/rudeness (level 2)
+    const mildInsults = ['stupid', 'dumb', 'lame', 'suck', 'hate', 'annoying', 'boring'];
+    if (mildInsults.some(word => lowerMessage.includes(word))) {
+      insultLevel = 2;
+    }
+    
+    // Moderate insults (level 3)
+    const moderateInsults = ['idiot', 'moron', 'loser', 'pathetic', 'worthless', 'shut up'];
+    if (moderateInsults.some(word => lowerMessage.includes(word))) {
+      insultLevel = 3;
+    }
+    
+    // Strong insults (level 4)
+    const strongInsults = ['damn', 'hell', 'crap', 'jerk', 'bastard', 'asshole'];
+    if (strongInsults.some(word => lowerMessage.includes(word))) {
+      insultLevel = 4;
+    }
+    
+    // Extreme insults (level 5)
+    const extremeInsults = ['fuck', 'shit', 'bitch', 'die', 'kill yourself', 'worst'];
+    if (extremeInsults.some(word => lowerMessage.includes(word))) {
+      insultLevel = 5;
+    }
+    
+    // Check for multiple curse words (escalate)
+    const curseCount = [...mildInsults, ...moderateInsults, ...strongInsults, ...extremeInsults]
+      .filter(word => lowerMessage.includes(word)).length;
+    
+    if (curseCount > 1) {
+      insultLevel = Math.min(5, insultLevel + 1);
+    }
+    
+    // ALL CAPS indicates shouting/anger (escalate by 1)
+    if (message === message.toUpperCase() && message.length > 3) {
+      insultLevel = Math.min(5, insultLevel + 1);
+    }
+    
+    return insultLevel;
+  }
+
+  /**
    * Fallback behavior when AI fails
    * @param {string} message - Player's message
    */
@@ -325,7 +397,8 @@ You should call ONE function per response based on the player's message. Respond
       this.giveCoins();
       this.displayAiMessage("Your genuine kindness is... noted. Here, take these coins.");
     } else if (this.playerStats.suspiciousBehavior > 2 || this.playerStats.politenessScore < -1) {
-      const action = Math.random() > 0.5 ? this.throwPlayer.bind(this) : this.shootAndTakeCoins.bind(this);
+      const insultLevel = this.analyzeInsultLevel(message);
+      const action = Math.random() > 0.5 ? () => this.throwPlayer(insultLevel) : this.shootAndTakeCoins.bind(this);
       action();
       this.displayAiMessage("Your insincerity displeases me...");
     } else {
@@ -340,24 +413,43 @@ You should call ONE function per response based on the player's message. Respond
   }
 
   /**
-   * FUNCTION: Throw player with wind effect
+   * FUNCTION: Throw player with wind effect based on insult severity
+   * @param {number} insultLevel - How bad the insult was (1-5 scale)
    */
-  async throwPlayer() {
+  async throwPlayer(insultLevel = 3) {
     if (!this.player || !this.player.body) return;
     
-    // Create wind effect visual
-    this.createWindEffect();
+    // Clamp insult level between 1 and 5
+    insultLevel = Math.max(1, Math.min(5, insultLevel));
     
-    // Apply random force to player
-    const forceX = (Math.random() - 0.5) * 600; // Random horizontal force
-    const forceY = -Math.random() * 200 - 100;   // Upward force
+    // Create wind effect visual (scales with insult level)
+    this.createWindEffect(insultLevel);
+    
+    // Scale wind force based on how insulting the message was - MUCH stronger now!
+    const baseForceX = 800;  // Increased from 300 to 800
+    const baseForceY = 400;  // Increased from 150 to 400
+    const multiplier = insultLevel * 0.6; // 0.6x to 3.0x multiplier
+    
+    const forceX = (Math.random() - 0.5) * baseForceX * multiplier * 2;
+    const forceY = -(Math.random() * baseForceY + baseForceY) * multiplier;
     
     this.player.body.setVelocity(forceX, forceY);
     
-    // Screen shake effect
-    this.scene.cameras.main.shake(300, 0.02);
+    // Screen shake scales with insult level
+    const shakeDuration = 200 + (insultLevel * 100); // 300ms to 700ms
+    const shakeIntensity = 0.01 + (insultLevel * 0.01); // 0.02 to 0.06
+    this.scene.cameras.main.shake(shakeDuration, shakeIntensity);
     
-    console.log('💨 Player thrown by wind!');
+    // Different messages based on severity
+    const messages = [
+      '💨 A gentle breeze pushes you...',
+      '💨 Wind picks up and pushes you!',
+      '💨 Strong winds throw you around!',
+      '💨 Powerful gales LAUNCH you!',
+      '💨 HURRICANE FORCE WINDS OBLITERATE YOU!'
+    ];
+    
+    console.log(messages[insultLevel - 1]);
   }
 
   /**
@@ -400,29 +492,39 @@ You should call ONE function per response based on the player's message. Respond
   }
 
   /**
-   * Create wind effect visual
+   * Create wind effect visual that scales with insult level
+   * @param {number} insultLevel - How bad the insult was (1-5 scale)
    */
-  createWindEffect() {
+  createWindEffect(insultLevel = 3) {
     const centerX = this.player.x;
     const centerY = this.player.y;
     
+    // Scale particle count and intensity based on insult level
+    const particleCount = 10 + (insultLevel * 8); // 18 to 50 particles
+    const spreadMultiplier = insultLevel * 0.4; // 0.4x to 2.0x spread
+    const speedMultiplier = insultLevel * 0.3; // 0.3x to 1.5x speed
+    
+    // Color intensity based on insult level (lighter blue to white-hot)
+    const colors = [0x87ceeb, 0x87cefa, 0xb0e0e6, 0xe0ffff, 0xffffff];
+    const particleColor = colors[insultLevel - 1];
+    
     // Create wind particles
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < particleCount; i++) {
       const particle = this.scene.add.circle(
-        centerX + (Math.random() - 0.5) * 100,
-        centerY + (Math.random() - 0.5) * 50,
-        Math.random() * 3 + 1,
-        0x87ceeb,
-        0.7
+        centerX + (Math.random() - 0.5) * 100 * spreadMultiplier,
+        centerY + (Math.random() - 0.5) * 50 * spreadMultiplier,
+        Math.random() * 3 + 1 + insultLevel,
+        particleColor,
+        0.7 + (insultLevel * 0.05)
       );
       
       // Animate particles
       this.scene.tweens.add({
         targets: particle,
-        x: centerX + (Math.random() - 0.5) * 300,
-        y: centerY - Math.random() * 100,
+        x: centerX + (Math.random() - 0.5) * 300 * spreadMultiplier,
+        y: centerY - Math.random() * 100 * speedMultiplier,
         alpha: 0,
-        duration: 800,
+        duration: 800 - (insultLevel * 50), // Faster for higher insult levels
         onComplete: () => particle.destroy()
       });
     }
