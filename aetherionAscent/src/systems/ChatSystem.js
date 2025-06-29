@@ -246,14 +246,21 @@ export class ChatSystem {
    */
   sendMessage() {
     const message = this.chatInput.value.trim();
-    if (!message) return;
+    console.log(`💬 SEND: Player sending message: "${message}"`);
+    if (!message) {
+      console.log(`💬 SEND: Empty message, skipping`);
+      return;
+    }
     
     // Add player message to display
     this.addPlayerMessage(message);
     
     // Send to AI system if available
     if (this.aiSystem) {
+      console.log(`💬 SEND: AI system found, sending message`);
       this.aiSystem.processPlayerMessage(message);
+    } else {
+      console.error(`💬 SEND: No AI system found!`);
     }
     
     // Clear input
@@ -282,6 +289,7 @@ export class ChatSystem {
    * @param {string} message - AI's message
    */
   addAiMessage(message) {
+    console.log(`💬 CHAT: Adding AI message: "${message}"`);
     this.messages.push({
       type: 'ai',
       text: `Enemy: ${message}`,
@@ -289,9 +297,13 @@ export class ChatSystem {
     });
     
     this.trimMessages();
+    console.log(`💬 CHAT: Chat visible: ${this.isVisible}, total messages: ${this.messages.length}`);
     
     if (this.isVisible) {
+      console.log(`💬 CHAT: Updating message display`);
       this.updateMessageDisplay();
+    } else {
+      console.log(`💬 CHAT: Chat not visible, message queued`);
     }
   }
 
@@ -403,7 +415,9 @@ export class ChatSystem {
    * @param {AiSystem} aiSystem - AI system instance
    */
   setAiSystem(aiSystem) {
+    console.log(`💬 CHAT: setAiSystem called with:`, !!aiSystem);
     this.aiSystem = aiSystem;
+    console.log(`💬 CHAT: AI system set, current system:`, !!this.aiSystem);
   }
 
   /**

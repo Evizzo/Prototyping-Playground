@@ -225,7 +225,22 @@ export class GameScene extends Phaser.Scene {
     // Create chat system first
     this.chatSystem = new ChatSystem(this);
     
-    console.log('🤖 AI systems initialized (waiting for first enemy spawn)');
+    // Check if we have enemies that need AI system connection
+    if (this.enemies && this.enemies.length > 0 && !this.aiSystem && this.player) {
+      console.log('🤖 Found existing enemies, connecting AI system...');
+      
+      // Connect AI system to first enemy
+      const firstEnemy = this.enemies[0];
+      try {
+        this.aiSystem = new AiSystem(this, firstEnemy, this.player);
+        this.chatSystem.setAiSystem(this.aiSystem);
+        console.log('🤖 AI system connected to existing enemy SUCCESSFULLY!');
+      } catch (error) {
+        console.error('🤖 Failed to connect AI system to existing enemy:', error);
+      }
+    }
+    
+    console.log('🤖 AI systems initialized (enemies:', this.enemies?.length || 0, ', AI system:', !!this.aiSystem, ')');
   }
 
   /**
@@ -234,19 +249,43 @@ export class GameScene extends Phaser.Scene {
    * @param {number} y - Y position
    */
   spawnEnemy(x, y) {
-    // Create new enemy
-    const enemy = new Enemy(this, x, y);
-    this.enemies.push(enemy);
+    console.log(`🎯 SPAWN: Method called! Attempting to spawn enemy at (${x}, ${y})`);
+    console.log(`🎯 SPAWN: This scene:`, !!this);
     
-    // If this is the first enemy, initialize AI system
-    if (!this.aiSystem && this.player) {
-      this.aiSystem = new AiSystem(this, enemy, this.player);
-      this.chatSystem.setAiSystem(this.aiSystem);
+    try {
+      // Create new enemy
+      console.log(`🎯 SPAWN: Creating Enemy...`);
+      const enemy = new Enemy(this, x, y);
+      this.enemies.push(enemy);
+      console.log(`🎯 SPAWN: Enemy created successfully, total enemies: ${this.enemies.length}`);
       
-      console.log('🤖 AI system connected to first enemy');
+      // If this is the first enemy, initialize AI system
+      console.log(`🎯 SPAWN: Checking AI system - current: ${!!this.aiSystem}, player: ${!!this.player}, chatSystem: ${!!this.chatSystem}`);
+      
+      if (!this.aiSystem && this.player) {
+        console.log(`🎯 SPAWN: Creating AI system...`);
+        try {
+          this.aiSystem = new AiSystem(this, enemy, this.player);
+          console.log(`🎯 SPAWN: AI system created successfully`);
+          
+          if (this.chatSystem) {
+            this.chatSystem.setAiSystem(this.aiSystem);
+            console.log('🤖 AI system connected to chat system SUCCESSFULLY!');
+          } else {
+            console.error('🤖 No chat system found to connect!');
+          }
+        } catch (aiError) {
+          console.error('🤖 Failed to create AI system:', aiError);
+        }
+      } else {
+        console.log(`🎯 SPAWN: AI system already exists or no player found`);
+      }
+      
+      console.log(`👹 Enemy spawned at (${x}, ${y}). Total enemies: ${this.enemies.length}`);
+      
+    } catch (error) {
+      console.error('🎯 SPAWN: ERROR in spawnEnemy method:', error);
     }
-    
-    console.log(`👹 Enemy spawned at (${x}, ${y}). Total enemies: ${this.enemies.length}`);
   }
 
   /**

@@ -25,13 +25,12 @@ export class AiSystem {
     
     // API Configuration
     this.apiKey = import.meta.env.VITE_GOOGLE_API_KEY || process.env.GOOGLE_API_KEY;
-    this.apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent';
+    this.apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
     
     // AI State
     this.isProcessing = false;
     this.lastPlayerMessage = '';
     this.conversationHistory = [];
-    this.aiCooldown = 0;
     this.lastActionTime = 0;
     
     // Function calling setup
@@ -79,12 +78,16 @@ You should call ONE function per response based on the player's message. Respond
    * @param {string} message - Player's message
    */
   async processPlayerMessage(message) {
-    if (this.isProcessing || this.aiCooldown > 0) {
+    console.log(`🤖 PROCESS: Starting to process message: "${message}"`);
+    console.log(`🤖 PROCESS: Current state - isProcessing: ${this.isProcessing}`);
+    
+    if (this.isProcessing) {
+      console.log(`🤖 PROCESS: BLOCKED - currently processing another message`);
       return;
     }
 
+    console.log(`🤖 PROCESS: Setting processing state to true`);
     this.isProcessing = true;
-    this.aiCooldown = 3000; // 3 second cooldown between AI actions
     
     try {
       // Update player stats
@@ -102,17 +105,26 @@ You should call ONE function per response based on the player's message. Respond
       }
       
       // Call Gemini API
+      console.log(`🤖 PROCESS: About to call Gemini API...`);
       const response = await this.callGeminiApi(message);
+      console.log(`🤖 PROCESS: API response received:`, !!response);
       
       if (response) {
+        console.log(`🤖 PROCESS: Valid response received, handling...`);
         await this.handleAiResponse(response);
+        console.log(`🤖 PROCESS: Response handling completed`);
+      } else {
+        console.log(`🤖 PROCESS: No response received, using fallback...`);
+        this.fallbackBehavior(message);
       }
       
     } catch (error) {
       console.error('🤖 AI Error:', error);
       // Fallback behavior
+      console.log(`🤖 PROCESS: Error occurred, using fallback for: "${message}"`);
       this.fallbackBehavior(message);
     } finally {
+      console.log(`🤖 PROCESS: Setting processing state to false`);
       this.isProcessing = false;
     }
   }
@@ -178,16 +190,11 @@ You should call ONE function per response based on the player's message. Respond
       contents: [
         {
           role: 'user',
-          parts: [{ text: this.systemPrompt }]
-        },
-        ...this.conversationHistory,
-        {
-          role: 'user',
-          parts: [{ text: `Player stats: politeness=${this.playerStats.politenessScore}, suspicious=${this.playerStats.suspiciousBehavior}, messages=${this.playerStats.messagesCount}\n\nPlayer message: "${message}"` }]
+          parts: [{ text: `${this.systemPrompt}\n\nPlayer stats: politeness=${this.playerStats.politenessScore}, suspicious=${this.playerStats.suspiciousBehavior}, messages=${this.playerStats.messagesCount}\n\nPlayer message: "${message}"` }]
         }
       ],
       tools: [{
-        function_declarations: [
+        functionDeclarations: [
           {
             name: 'throwPlayer',
             description: 'Throw the player randomly with a wind effect',
@@ -218,7 +225,7 @@ You should call ONE function per response based on the player's message. Respond
         ]
       }],
       generationConfig: {
-        temperature: 0.1, // Low temperature for consistent behavior
+        temperature: 0.1,
         maxOutputTokens: 150
       }
     };
@@ -232,7 +239,9 @@ You should call ONE function per response based on the player's message. Respond
     });
 
     if (!response.ok) {
-      throw new Error(`API call failed: ${response.status}`);
+      const errorText = await response.text();
+      console.error('API Error Details:', errorText);
+      throw new Error(`API call failed: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
@@ -244,32 +253,46 @@ You should call ONE function per response based on the player's message. Respond
    * @param {Object} response - Gemini API response
    */
   async handleAiResponse(response) {
+    console.log(`🤖 HANDLE: Processing AI response:`, response);
+    
     const candidate = response.candidates?.[0];
-    if (!candidate) return;
+    if (!candidate) {
+      console.log(`🤖 HANDLE: No candidate found in response`);
+      return;
+    }
 
     let aiMessage = '';
     let functionCalled = false;
 
     // Handle function calls
     if (candidate.content?.parts) {
+      console.log(`🤖 HANDLE: Found ${candidate.content.parts.length} parts in response`);
       for (const part of candidate.content.parts) {
         if (part.text) {
+          console.log(`🤖 HANDLE: Found text part: "${part.text}"`);
           aiMessage += part.text;
         }
         
         if (part.functionCall) {
+          console.log(`🤖 HANDLE: Found function call:`, part.functionCall);
           const functionName = part.functionCall.name;
           if (this.availableFunctions[functionName]) {
+            console.log(`🤖 HANDLE: Executing function: ${functionName}`);
             await this.availableFunctions[functionName]();
             functionCalled = true;
             console.log(`🤖 AI called function: ${functionName}`);
+          } else {
+            console.log(`🤖 HANDLE: Unknown function: ${functionName}`);
           }
         }
       }
+    } else {
+      console.log(`🤖 HANDLE: No parts found in candidate content`);
     }
 
     // Add AI response to history
     if (aiMessage) {
+      console.log(`🤖 HANDLE: Adding AI message to history and display: "${aiMessage}"`);
       this.conversationHistory.push({
         role: 'assistant',
         content: aiMessage
@@ -277,11 +300,16 @@ You should call ONE function per response based on the player's message. Respond
       
       // Display AI message to player
       this.displayAiMessage(aiMessage);
+    } else {
+      console.log(`🤖 HANDLE: No AI message to display`);
     }
 
     // If no function was called, use fallback behavior
     if (!functionCalled) {
+      console.log(`🤖 HANDLE: No function called, using fallback behavior`);
       this.fallbackBehavior(this.conversationHistory[this.conversationHistory.length - 2]?.content || '');
+    } else {
+      console.log(`🤖 HANDLE: Function was called, skipping fallback`);
     }
   }
 
@@ -482,10 +510,8 @@ You should call ONE function per response based on the player's message. Respond
    * Update AI system
    */
   update(deltaTime) {
-    // Update cooldowns
-    if (this.aiCooldown > 0) {
-      this.aiCooldown -= deltaTime;
-    }
+    // AI system ready for updates
+    // (Cooldown system removed - AI responds immediately)
   }
 
   /**
