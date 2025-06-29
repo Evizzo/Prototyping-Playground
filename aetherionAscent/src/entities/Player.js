@@ -23,8 +23,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
    * @param {Phaser.Scene} scene - The game scene
    * @param {number} x - Starting X position
    * @param {number} y - Starting Y position
+   * @param {ChatSystem} chatSystem - Reference to chat system for input blocking
    */
-  constructor(scene, x, y) {
+  constructor(scene, x, y, chatSystem = null) {
     // Create player sprite (we'll use a simple colored rectangle for now)
     super(scene, x, y, 'player');
     
@@ -34,6 +35,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     
     // Store scene reference
     this.scene = scene;
+    
+    // Store chat system reference for input blocking
+    this.chatSystem = chatSystem;
     
     // Player state - optimized for strategic platforming
     this.playerState = {
@@ -78,6 +82,59 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.coyoteTime = 200; // ms of grace period for jumping after leaving ground - increased for easier gameplay
     
     console.log('🦸 Player character created and ready for action!');
+  }
+
+  /**
+   * Set chat system reference for input blocking
+   * @param {ChatSystem} chatSystem - Chat system instance
+   */
+  setChatSystem(chatSystem) {
+    this.chatSystem = chatSystem;
+  }
+
+  /**
+   * Enable or disable key capture based on chat state
+   * @param {boolean} enabled - Whether keys should be captured by player
+   */
+  setKeyCapture(enabled) {
+    if (enabled) {
+      // Re-enable key capture - recreate the keys only if Phaser keyboard is enabled
+      if (this.scene.input.keyboard && this.scene.input.keyboard.enabled) {
+        this.keys = {
+          left: [this.scene.input.keyboard.addKey('A'), this.scene.input.keyboard.addKey('LEFT')],
+          right: [this.scene.input.keyboard.addKey('D'), this.scene.input.keyboard.addKey('RIGHT')],
+          jump: [this.scene.input.keyboard.addKey('SPACE'), this.scene.input.keyboard.addKey('W'), this.scene.input.keyboard.addKey('UP')]
+        };
+        console.log('🎮 Player keys RECREATED for movement');
+      } else {
+        // Keep keys empty if Phaser keyboard is disabled
+        this.keys = {
+          left: [],
+          right: [],
+          jump: []
+        };
+        console.log('🎮 Player keys NOT recreated - Phaser keyboard disabled');
+      }
+    } else {
+      // Disable key capture - remove keys from Phaser safely
+      try {
+        Object.values(this.keys).flat().forEach(key => {
+          if (key && this.scene.input.keyboard) {
+            this.scene.input.keyboard.removeKey(key);
+          }
+        });
+      } catch (error) {
+        console.log('🎮 Error removing keys (this is OK):', error.message);
+      }
+      
+      // Clear the keys object
+      this.keys = {
+        left: [],
+        right: [],
+        jump: []
+      };
+      console.log('🎮 Player keys REMOVED for chat input');
+    }
   }
 
   /**
@@ -361,9 +418,14 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
    * @param {number} deltaTime - Time since last frame (seconds)
    */
   handleMovementInput(deltaTime) {
-    // Check input states
-    const leftPressed = this.keys.left.some(key => key.isDown);
-    const rightPressed = this.keys.right.some(key => key.isDown);
+    // Don't process movement if chat is open
+    if (this.chatSystem && this.chatSystem.isVisible) {
+      return;
+    }
+    
+    // Check input states (handle empty arrays when chat is open)
+    const leftPressed = this.keys.left.some(key => key && key.isDown);
+    const rightPressed = this.keys.right.some(key => key && key.isDown);
     
     // Calculate desired horizontal movement
     let inputDirection = 0;
@@ -398,7 +460,12 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
    * Handle jump input (Space, W, Up Arrow)
    */
   handleJumpInput() {
-    const jumpPressed = this.keys.jump.some(key => Phaser.Input.Keyboard.JustDown(key));
+    // Don't process jump if chat is open
+    if (this.chatSystem && this.chatSystem.isVisible) {
+      return;
+    }
+    
+    const jumpPressed = this.keys.jump.some(key => key && Phaser.Input.Keyboard.JustDown(key));
     
     if (jumpPressed) {
       // Regular jump (ground or coyote time)

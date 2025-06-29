@@ -225,6 +225,13 @@ export class GameScene extends Phaser.Scene {
     // Create chat system first
     this.chatSystem = new ChatSystem(this);
     
+    // Connect chat system to player for input blocking
+    if (this.player) {
+      this.player.setChatSystem(this.chatSystem);
+      this.chatSystem.setPlayer(this.player);
+      console.log('🎮 Player connected to chat system for input blocking and key capture control');
+    }
+    
     // Check if we have enemies that need AI system connection
     if (this.enemies && this.enemies.length > 0 && !this.aiSystem && this.player) {
       console.log('🤖 Found existing enemies, connecting AI system...');

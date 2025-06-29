@@ -17,6 +17,7 @@ export class ChatSystem {
   constructor(scene, aiSystem = null) {
     this.scene = scene;
     this.aiSystem = aiSystem;
+    this.player = null; // Will be set later for key capture control
     
     // Chat state
     this.isVisible = false;
@@ -167,8 +168,6 @@ export class ChatSystem {
     this.chatInput.placeholder = 'Talk to the enemy...';
     this.chatInput.maxLength = 100;
     this.chatInput.style.position = 'absolute';
-    this.chatInput.style.left = `${this.containerBounds.x + 10}px`;
-    this.chatInput.style.top = `${this.containerBounds.y + this.containerBounds.height - 30}px`;
     this.chatInput.style.width = `${this.containerBounds.width - 20}px`;
     this.chatInput.style.height = '20px';
     this.chatInput.style.backgroundColor = '#222222';
@@ -180,7 +179,9 @@ export class ChatSystem {
     this.chatInput.style.fontFamily = 'monospace';
     this.chatInput.style.display = 'none';
     this.chatInput.style.zIndex = '1000';
+    this.chatInput.style.outline = 'none'; // Remove default focus outline
     
+    // Position will be updated dynamically in showChat()
     document.body.appendChild(this.chatInput);
   }
 
@@ -190,17 +191,48 @@ export class ChatSystem {
   setupInputHandling() {
     // Handle Enter key to send message
     this.chatInput.addEventListener('keydown', (event) => {
+      // Prevent event from bubbling to Phaser
+      event.stopPropagation();
+      
       if (event.key === 'Enter') {
+        event.preventDefault();
         this.sendMessage();
       } else if (event.key === 'Escape') {
+        event.preventDefault();
         this.hideChat();
       }
     });
     
-    // Handle chat toggle with 'T' key
-    this.scene.input.keyboard.on('keydown-T', () => {
-      this.toggleChat();
+    // Prevent all keyup events from bubbling to Phaser while chat is open
+    this.chatInput.addEventListener('keyup', (event) => {
+      event.stopPropagation();
     });
+    
+    // Prevent keypress events from bubbling to Phaser while chat is open
+    this.chatInput.addEventListener('keypress', (event) => {
+      event.stopPropagation();
+    });
+    
+    // Handle focus events
+    this.chatInput.addEventListener('focus', () => {
+      console.log('💬 Chat input focused');
+    });
+    
+    this.chatInput.addEventListener('blur', () => {
+      console.log('💬 Chat input blurred');
+    });
+    
+    // Handle chat toggle with 'T' key using native JavaScript (works even when Phaser keyboard is disabled)
+    this.nativeKeyListener = (event) => {
+      if (event.key.toLowerCase() === 't' && !this.isVisible) {
+        // Only open chat if it's not already visible
+        event.preventDefault();
+        this.toggleChat();
+      }
+    };
+    
+    // Add native event listener to document
+    document.addEventListener('keydown', this.nativeKeyListener);
   }
 
   /**
@@ -220,14 +252,58 @@ export class ChatSystem {
   showChat() {
     this.isVisible = true;
     this.chatContainer.setVisible(true);
+    
+    // Position the HTML input relative to the game canvas
+    this.updateInputPosition();
+    
     this.chatInput.style.display = 'block';
-    this.chatInput.focus();
+    
+    // Force focus with a small delay to ensure proper positioning
+    setTimeout(() => {
+      this.chatInput.focus();
+      this.chatInput.select(); // Select all text to make it easier to type
+    }, 10);
+    
     this.updateMessageDisplay();
+    
+    // COMPLETELY disable Phaser's keyboard capture so ALL keys work in HTML input
+    if (this.scene.input.keyboard) {
+      this.scene.input.keyboard.enabled = false;
+      console.log('🎮 Phaser keyboard capture COMPLETELY DISABLED for chat input');
+    }
+    
+    // Also disable player key capture as backup
+    if (this.player && this.player.setKeyCapture) {
+      this.player.setKeyCapture(false);
+      console.log('🎮 Player key capture DISABLED for chat input');
+    }
     
     // Add instruction message if first time
     if (this.messages.length === 0) {
       this.addSystemMessage('You can now talk to the evil enemy. Be careful how you speak...');
     }
+  }
+
+  /**
+   * Update HTML input position relative to game canvas
+   */
+  updateInputPosition() {
+    // Get the game canvas element
+    const canvas = this.scene.game.canvas;
+    const canvasRect = canvas.getBoundingClientRect();
+    
+    // Calculate the absolute position of the input relative to the page
+    const inputX = canvasRect.left + this.containerBounds.x + 10;
+    const inputY = canvasRect.top + this.containerBounds.y + this.containerBounds.height - 30;
+    
+    // Account for page scroll
+    const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
+    const scrollY = window.pageYOffset || document.documentElement.scrollTop;
+    
+    this.chatInput.style.left = `${inputX + scrollX}px`;
+    this.chatInput.style.top = `${inputY + scrollY}px`;
+    
+    console.log(`💬 Input positioned at: ${inputX + scrollX}, ${inputY + scrollY}`);
   }
 
   /**
@@ -239,6 +315,18 @@ export class ChatSystem {
     this.chatInput.style.display = 'none';
     this.chatInput.blur();
     this.clearMessageDisplay();
+    
+    // Re-enable Phaser's keyboard capture when chat closes
+    if (this.scene.input.keyboard) {
+      this.scene.input.keyboard.enabled = true;
+      console.log('🎮 Phaser keyboard capture COMPLETELY RE-ENABLED - chat closed');
+    }
+    
+    // Re-enable player key capture when chat closes
+    if (this.player && this.player.setKeyCapture) {
+      this.player.setKeyCapture(true);
+      console.log('🎮 Player key capture ENABLED - chat closed');
+    }
   }
 
   /**
@@ -400,13 +488,9 @@ export class ChatSystem {
    * Update chat system
    */
   update() {
-    // Update input position if needed (in case of window resize)
-    if (this.isVisible && this.chatInput) {
-      const gameCanvas = this.scene.game.canvas;
-      const rect = gameCanvas.getBoundingClientRect();
-      
-      this.chatInput.style.left = `${rect.left + this.containerBounds.x + 10}px`;
-      this.chatInput.style.top = `${rect.top + this.containerBounds.y + this.containerBounds.height - 30}px`;
+    // Update input position if chat is visible (handles window resize/scroll)
+    if (this.isVisible) {
+      this.updateInputPosition();
     }
   }
 
@@ -421,9 +505,27 @@ export class ChatSystem {
   }
 
   /**
+   * Set reference to player for key capture control
+   * @param {Player} player - Player instance
+   */
+  setPlayer(player) {
+    this.player = player;
+  }
+
+  /**
    * Clean up chat system
    */
   destroy() {
+    // Remove native keyboard event listener
+    if (this.nativeKeyListener) {
+      document.removeEventListener('keydown', this.nativeKeyListener);
+    }
+    
+    // Re-enable Phaser keyboard if it was disabled
+    if (this.scene.input.keyboard) {
+      this.scene.input.keyboard.enabled = true;
+    }
+    
     // Remove HTML input element
     if (this.chatInput && this.chatInput.parentNode) {
       this.chatInput.parentNode.removeChild(this.chatInput);
