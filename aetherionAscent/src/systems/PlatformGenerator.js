@@ -47,6 +47,16 @@ export class PlatformGenerator {
     this.maxActivePlatforms = CONFIG.PERFORMANCE.MAX_VISIBLE_PLATFORMS;
     this.lastDestructionCheck = 0;
     
+    // Enemy spawning tracking (initialize BEFORE stats to avoid reference error)
+    this.enemySpawning = {
+      platformsSinceLastEnemy: 0,
+      minPlatformsBetweenEnemies: 7,
+      maxPlatformsBetweenEnemies: 12,
+      nextEnemySpawnCount: 0, // Will be set below after method is available
+      enemiesSpawned: 0,
+      lastEnemySpawnY: Infinity
+    };
+    
     // Stats tracking
     this.stats = {
       totalPlatforms: 0,
@@ -54,11 +64,24 @@ export class PlatformGenerator {
       chunksGenerated: 0
     };
     
+    // Set initial enemy spawn count now that enemySpawning exists
+    this.enemySpawning.nextEnemySpawnCount = this.getRandomSpawnCount();
+    
     // Platform textures (will be created procedurally)
     this.createPlatformTextures();
     
     // Generate initial chunks
     this.generateInitialChunks();
+  }
+
+  /**
+   * Get random enemy spawn count (7-12 platforms)
+   */
+  getRandomSpawnCount() {
+    return Phaser.Math.Between(
+      this.enemySpawning.minPlatformsBetweenEnemies,
+      this.enemySpawning.maxPlatformsBetweenEnemies
+    );
   }
 
   /**
@@ -473,11 +496,49 @@ export class PlatformGenerator {
         console.log(`🪙 Coin placed on platform at (${Math.round(coinX)}, ${Math.round(coinY)}), platform top: ${Math.round(platformTop)}`);
       }
 
+      // Check for enemy spawning
+      this.checkEnemySpawning(x, y);
+
       return platform;
 
     } catch (error) {
       console.error('❌ Error in unified platform creation:', error);
       return null;
+    }
+  }
+
+  /**
+   * Check if enemy should spawn based on platform count
+   * @param {number} x - Platform X position
+   * @param {number} y - Platform Y position
+   */
+  checkEnemySpawning(x, y) {
+    // Increment platform count since last enemy
+    this.enemySpawning.platformsSinceLastEnemy++;
+    
+    // Check if we should spawn an enemy
+    if (this.enemySpawning.platformsSinceLastEnemy >= this.enemySpawning.nextEnemySpawnCount) {
+      // Check if scene has enemy spawning capability
+      if (this.scene.spawnEnemy && typeof this.scene.spawnEnemy === 'function') {
+        // Spawn enemy at platform position, slightly above it
+        const enemyX = x;
+        const enemyY = y - 100; // Spawn 100 pixels above platform
+        
+        this.scene.spawnEnemy(enemyX, enemyY);
+        
+        // Reset counters and set next spawn count
+        this.enemySpawning.platformsSinceLastEnemy = 0;
+        this.enemySpawning.nextEnemySpawnCount = this.getRandomSpawnCount();
+        this.enemySpawning.enemiesSpawned++;
+        this.enemySpawning.lastEnemySpawnY = y;
+        
+        console.log(`👹 Enemy spawn triggered! Enemy #${this.enemySpawning.enemiesSpawned} at (${enemyX}, ${enemyY}). Next spawn in ${this.enemySpawning.nextEnemySpawnCount} platforms.`);
+      } else {
+        console.warn('🤖 Scene does not support enemy spawning yet');
+      }
+    } else {
+      const platformsRemaining = this.enemySpawning.nextEnemySpawnCount - this.enemySpawning.platformsSinceLastEnemy;
+      console.log(`🎯 ${platformsRemaining} platforms until next enemy spawn`);
     }
   }
 

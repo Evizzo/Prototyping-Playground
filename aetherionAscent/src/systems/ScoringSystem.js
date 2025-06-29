@@ -187,6 +187,43 @@ export class ScoringSystem {
   }
 
   /**
+   * Add coins to the player (for AI enemy rewards)
+   * @param {number} coinCount - Number of coins to add
+   */
+  addCoins(coinCount) {
+    for (let i = 0; i < coinCount; i++) {
+      this.collectCoin();
+    }
+    console.log(`🎁 AI gave ${coinCount} coins! Total: ${this.stats.coinsCollected}`);
+  }
+
+  /**
+   * Remove coins from the player (for AI enemy penalties)
+   * @param {number} coinCount - Number of coins to remove
+   * @returns {number} Actually removed coins (can't go below 0)
+   */
+  removeCoins(coinCount) {
+    const actuallyRemoved = Math.min(coinCount, this.stats.coinsCollected);
+    
+    this.stats.coinsCollected -= actuallyRemoved;
+    this.stats.coinScore -= actuallyRemoved * this.config.coinValue;
+    
+    // Update total score
+    this.calculateTotalScore();
+    
+    console.log(`👹 AI took ${actuallyRemoved} coins! Remaining: ${this.stats.coinsCollected}`);
+    return actuallyRemoved;
+  }
+
+  /**
+   * Get coin count for AI checks
+   * @returns {number} Current coin count
+   */
+  get coins() {
+    return this.stats.coinsCollected;
+  }
+
+  /**
    * Get formatted score breakdown for debug display
    * @returns {string} Formatted score information
    */

@@ -2,9 +2,12 @@ import { CONFIG, getRandomParticleColor } from '../config/gameConfig.js';
 import { VoidSystem } from '../systems/VoidSystem.js';
 import { PlatformGenerator } from '../systems/PlatformGenerator.js';
 import { Player } from '../entities/Player.js';
+import { Enemy } from '../entities/Enemy.js';
 import { ScoringSystem } from '../systems/ScoringSystem.js';
 import { CoinSystem } from '../systems/CoinSystem.js';
 import { BackgroundSystem } from '../systems/BackgroundSystem.js';
+import { AiSystem } from '../systems/AiSystem.js';
+import { ChatSystem } from '../systems/ChatSystem.js';
 
 // Import shaders as text
 import bloomShader from '../shaders/bloom.frag?raw';
@@ -42,6 +45,11 @@ export class GameScene extends Phaser.Scene {
     this.scoringSystem = null;
     this.coinSystem = null;
     this.backgroundSystem = null;
+    
+    // AI and Enemy systems
+    this.enemies = [];
+    this.aiSystem = null;
+    this.chatSystem = null;
     
     // Visual systems
     this.backgroundLayers = [];
@@ -121,6 +129,7 @@ export class GameScene extends Phaser.Scene {
     this.time.delayedCall(100, () => {
       this.createPlayer();
       this.createScoreDisplay();
+      this.initializeAiSystems();
     });
     
     console.log('✨ Mystical world created successfully!');
@@ -174,6 +183,25 @@ export class GameScene extends Phaser.Scene {
     platformTexture.generateTexture('platform', 200, CONFIG.WORLD.PLATFORM_THICKNESS);
     platformTexture.destroy();
     
+    // Create enemy texture - evil placeholder
+    const enemyGfx = this.add.graphics();
+    
+    // Main enemy body (dark and menacing)
+    enemyGfx.fillStyle(0x2a2a2a, 1.0); // Dark gray
+    enemyGfx.fillRoundedRect(2, 2, 20, 28, 4);
+    
+    // Red glow for evil eyes
+    enemyGfx.fillStyle(0xff0000, 0.8);
+    enemyGfx.fillCircle(8, 12, 2);
+    enemyGfx.fillCircle(16, 12, 2);
+    
+    // Dark aura
+    enemyGfx.fillStyle(0x330033, 0.3);
+    enemyGfx.fillCircle(12, 16, 16);
+    
+    enemyGfx.generateTexture('enemy', 24, 32);
+    enemyGfx.destroy();
+    
     // DEBUG: Verify texture was created
     if (this.textures.exists('platform')) {
       console.log('✅ Platform texture created successfully');
@@ -181,7 +209,44 @@ export class GameScene extends Phaser.Scene {
       console.error('❌ Platform texture creation failed!');
     }
     
+    if (this.textures.exists('enemy')) {
+      console.log('✅ Enemy texture created successfully');
+    } else {
+      console.error('❌ Enemy texture creation failed!');
+    }
+    
     console.log('✅ Basic textures created');
+  }
+
+  /**
+   * Initialize AI-related systems
+   */
+  initializeAiSystems() {
+    // Create chat system first
+    this.chatSystem = new ChatSystem(this);
+    
+    console.log('🤖 AI systems initialized (waiting for first enemy spawn)');
+  }
+
+  /**
+   * Spawn an enemy at specified position
+   * @param {number} x - X position
+   * @param {number} y - Y position
+   */
+  spawnEnemy(x, y) {
+    // Create new enemy
+    const enemy = new Enemy(this, x, y);
+    this.enemies.push(enemy);
+    
+    // If this is the first enemy, initialize AI system
+    if (!this.aiSystem && this.player) {
+      this.aiSystem = new AiSystem(this, enemy, this.player);
+      this.chatSystem.setAiSystem(this.aiSystem);
+      
+      console.log('🤖 AI system connected to first enemy');
+    }
+    
+    console.log(`👹 Enemy spawned at (${x}, ${y}). Total enemies: ${this.enemies.length}`);
   }
 
   /**
@@ -571,10 +636,39 @@ export class GameScene extends Phaser.Scene {
       this.backgroundSystem.update(this.cameras.main.scrollY);
     }
     
+    // Update AI and enemy systems
+    this.updateAiSystems(deltaTime);
+    
     // Light culling disabled for now
     // if (this.lightManager) {
     //   this.lightManager.updateLightCulling(this.cameras.main.scrollY);
     // }
+  }
+
+  /**
+   * Update AI and enemy systems
+   * @param {number} deltaTime - Time since last frame (seconds)
+   */
+  updateAiSystems(deltaTime) {
+    // Update all enemies
+    this.enemies.forEach((enemy, index) => {
+      if (enemy && enemy.enemyState && enemy.enemyState.isActive) {
+        enemy.update(deltaTime);
+      } else {
+        // Remove inactive enemies
+        this.enemies.splice(index, 1);
+      }
+    });
+    
+    // Update AI system
+    if (this.aiSystem) {
+      this.aiSystem.update(deltaTime);
+    }
+    
+    // Update chat system
+    if (this.chatSystem) {
+      this.chatSystem.update();
+    }
   }
 
   /**
@@ -724,6 +818,18 @@ export class GameScene extends Phaser.Scene {
     if (this.ambientParticles) {
       this.ambientParticles.destroy();
     }
+    
+    // Destroy AI and enemy systems
+    if (this.aiSystem) {
+      this.aiSystem.destroy();
+    }
+    if (this.chatSystem) {
+      this.chatSystem.destroy();
+    }
+    this.enemies.forEach(enemy => {
+      if (enemy) enemy.destroy();
+    });
+    this.enemies = [];
     
     console.log('✅ GameScene cleanup complete');
     
