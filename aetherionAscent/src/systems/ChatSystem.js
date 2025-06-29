@@ -431,14 +431,20 @@ export class ChatSystem {
     // Clear existing message texts
     this.clearMessageDisplay();
     
-    // Create new message texts
+    // Calculate available space for messages (container height minus input area and padding)
+    const inputAreaHeight = 35; // Space reserved for input field at bottom
+    const topPadding = 10;
+    const availableHeight = this.containerBounds.height - inputAreaHeight - topPadding;
+    
+    // Create new message texts with proper spacing
+    let currentY = this.containerBounds.y + topPadding;
+    
     this.messages.forEach((message, index) => {
-      const y = this.containerBounds.y + 15 + (index * 25);
       const color = this.getMessageColor(message.type);
       
       const messageText = this.scene.add.text(
         this.containerBounds.x + 10,
-        y,
+        currentY,
         message.text,
         {
           fontSize: this.chatStyles.fontSize,
@@ -452,6 +458,19 @@ export class ChatSystem {
       messageText.setDepth(195);
       
       this.messageTexts.push(messageText);
+      
+      // Calculate the actual height of this text (accounting for line wrapping)
+      const textHeight = messageText.height;
+      const messageSpacing = 5; // Space between messages
+      
+      // Move Y position for next message
+      currentY += textHeight + messageSpacing;
+      
+      // If we're running out of space, we might need to scroll or limit messages
+      if (currentY + textHeight > this.containerBounds.y + availableHeight) {
+        // For now, we'll just ensure we don't exceed the available space
+        // Future enhancement could implement scrolling
+      }
     });
   }
 
