@@ -12,7 +12,7 @@ This repository is a space for quick experiments, creative coding, and rapid pro
 
 ## 🚀 Why Build All The Things?
 
-- **See what's possible** - Each app type has unique challenges and solutions
+- **Explore** - Each app type has unique challenges and solutions
 - **Learn by doing** - Experience is the best teacher
 - **Push boundaries** - Try new technologies and approaches
 - **Master the full stack** - From games to APIs, understand the whole ecosystem
