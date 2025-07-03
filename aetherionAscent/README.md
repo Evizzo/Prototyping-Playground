@@ -1,4 +1,4 @@
-# �� Aetherion Ascent
+# Aetherion Ascent
 
 **You vs AI Agent** - A platformer where you chat with an AI enemy that rewards kindness and punishes rudeness in real-time.
 
