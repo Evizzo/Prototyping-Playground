@@ -1,41 +1,23 @@
-# 🚀 Ship It Challenge
+# Prototyping Playground
 
-**21-year-old Software/AI Engineer taking on the ultimate challenge: Build, Ship, Deploy, and Get Real Users!**
+This repository is a space for quick experiments, creative coding, and rapid prototyping. 
 
 ## 🎯 The Mission
 
-This repository documents my journey to create and deploy **5 complete applications** that real people will actually use. No more building in isolation!
+- 🎮 **Game** [`aetherionAscent/`](./aetherionAscent) ✅ — *AI agent enemy vs player platformer with real-time chat*
+- 🌐 **Web App** — *Full-stack web application*
+- 📱 **Mobile App** — *Native or cross-platform mobile app*
+- 🤖 **AI Chatbot** — *Intelligent conversational agent*
+- 🔗 **API** — *Backend service with endpoints*
 
-### 🏆 Challenge Goals:
-- 🎮 **Game**
-- 🌐 **Web App**
-- 📱 **Mobile App**
-- 🤖 **AI Chatbot**
-- 🔗 **API**
+## 🚀 Why Build All The Things?
 
-## 🎥 Live Coding Journey
+- **See what's possible** - Each app type has unique challenges and solutions
+- **Learn by doing** - Experience is the best teacher
+- **Push boundaries** - Try new technologies and approaches
+- **Master the full stack** - From games to APIs, understand the whole ecosystem
+- **And more...** - The journey itself is the destination
 
-Watch me code, struggle, learn, and ship in real-time on YouTube!
-- **Channel**: https://www.youtube.com/@Evizzo
-- Every build session streamed live
-- Real-time problem solving and decision making
-- Community feedback and suggestions welcome
+## 🛠️ Tech Philosophy
 
-### Current Projects
-- 🔨 *Challenge starts now - projects will appear here as I build and ship them*
-
-## 🎪 The Challenge Rules
-
-- **Ship fast, iterate faster** - Get to users quickly
-- **Real deployment required** - No localhost heroes
-- **User feedback driven** - Build what people actually want
-- **Document the journey** - Share wins, fails, and lessons
-- **Have fun with code** - Enjoy the process
-
-## 🛠️ Tech Stack
-
-Whatever gets the job done and ships fastest.
-
----
-
-⭐ **Follow along and star if you're ready to see some apps get shipped!** ⭐ 
+**Whatever gets the job done and ships fastest.** 

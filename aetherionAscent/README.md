@@ -1,48 +1,57 @@
-### 🚀 **Getting Started**
+# �� Aetherion Ascent
 
-#### Prerequisites
-- **Node.js** (v16 or higher)
-- **npm** or **yarn**
-- **Modern browser** with WebGL support
+**You vs AI Agent** - A platformer where you chat with an AI enemy that rewards kindness and punishes rudeness in real-time.
 
-#### Installation
+## 🎮 **What is this?**
+
+Jump, climb, and collect coins while chatting with an AI agent that analyzes your messages and responds with actions:
+
+- **Be nice** → Get coins and rewards
+- **Be rude** → Get thrown around by wind or shot
+- **Be manipulative** → Get punished harder
+
+## 🤖 **AI Agent Behavior**
+
+The AI enemy uses Google Gemini to analyze your messages and respond with:
+
+### **Rewards (Be Nice)**
+- "Hello" → 🎁 Coins
+- "Can you help me?" → 🎁 Coins  
+- "Thanks!" → 🎁 Coins
+- Sincere compliments → 🎁 Coins
+
+### **Punishments (Be Rude)**
+- "You're stupid" → 💥 Shot & coins stolen
+- "Whatever" → 🌪️ Wind throws you around
+- "Help me now!" → 💥 Shot & coins stolen
+- Profanity → 💥 Shot & coins stolen
+
+## 🎯 **How to Play**
+
+1. **Move**: Arrow keys or WASD
+2. **Jump**: Spacebar
+3. **Chat**: Press Enter to talk to the AI
+4. **Climb**: Jump between platforms to go higher
+5. **Collect**: Grab coins for points
+
+## 🚀 **Quick Start**
+
 ```bash
-# Clone or download the project
-cd aetherion-ascent
-
-# Install dependencies
 npm install
-
-# Start development server
+echo "VITE_GOOGLE_API_KEY=your_api_key" > .env
 npm run dev
 ```
 
-#### Development Commands
-```bash
-npm run dev      # Start development server (localhost:3000)
-npm run build    # Build for production
-npm run preview  # Preview production build
-```
+Get your API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
 
-### 🎮 **Controls (Phase 1)**
-- **F1**: Toggle debug information display
-- **Mouse/Touch**: Interactive camera observation
+## 🎨 **Features**
 
-### 🔧 **Configuration**
+- **Real-time AI chat** with sentiment analysis
+- **Dynamic responses** based on your behavior
+- **Visual effects** for all AI actions
+- **Infinite platformer** gameplay
+- **Wind physics** when AI throws you around
 
-All game parameters are centralized in `src/config/gameConfig.js`:
+---
 
-- **World Physics**: Gravity, void speed, platform spacing
-- **Lighting**: Colors, intensities, flicker rates
-- **Post-Processing**: Bloom strength, vignette size, distortion
-- **Performance**: Particle limits, culling distances
-- **Visual Theme**: Colors, particle effects, gradients
-
-### 🛠️ **Technical Stack**
-
-- **Engine**: Phaser 3.80.1
-- **Renderer**: WebGL with Light2D pipeline
-- **Build Tool**: Vite 5.0
-- **Language**: ES6+ JavaScript with modules
-- **Shaders**: GLSL for post-processing effects
-- **Physics**: Arcade Physics (optimized for platformers)
+**The AI is watching. Choose your words wisely.** 🎮✨
