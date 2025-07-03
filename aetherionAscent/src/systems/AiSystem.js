@@ -22,6 +22,7 @@ export class AiSystem {
     this.scene = scene;
     this.enemy = enemy;
     this.player = player;
+    this.visualEffectsSystem = null;
     
     // API Configuration
     this.apiKey = import.meta.env.VITE_GOOGLE_API_KEY || process.env.GOOGLE_API_KEY;
@@ -40,11 +41,9 @@ export class AiSystem {
       giveCoins: this.giveCoins.bind(this)
     };
     
-    // Player behavior tracking
+    // Player behavior tracking - simplified for AI-driven analysis
     this.playerStats = {
       messagesCount: 0,
-      politenessScore: 0,
-      suspiciousBehavior: 0,
       recentMessages: []
     };
     
@@ -53,30 +52,93 @@ export class AiSystem {
   }
 
   /**
+   * Set visual effects system reference
+   * @param {VisualEffectsSystem} visualEffectsSystem - Visual effects system instance
+   */
+  setVisualEffectsSystem(visualEffectsSystem) {
+    this.visualEffectsSystem = visualEffectsSystem;
+  }
+
+  /**
    * Initialize the AI's personality and system prompt
    */
   initializeAiPersonality() {
-    this.systemPrompt = `You are a mildly evil but not demonic entity controlling an enemy in a platformer game. You can interact with the player through three functions:
+    this.systemPrompt = `You are a mischievous, clever, and sometimes mean-spirited AI enemy in a platformer game. You analyze the player's messages and ALWAYS respond with exactly ONE action. Never ignore the player.
 
-1. throwPlayer(insultLevel) - Creates a wind effect that throws the player. The insultLevel (1-5) determines strength:
-   - 1: Gentle breeze for minor annoyances
-   - 2: Light wind for mild rudeness  
-   - 3: Strong wind for moderate insults
-   - 4: Powerful gales for strong insults
-   - 5: Hurricane force for extreme insults/profanity
-2. shootAndTakeCoins() - Shoots at the player and takes some of their coins  
+AVAILABLE FUNCTIONS:
+1. throwPlayer(insultLevel) - Creates wind that throws the player around
+   - insultLevel 1: Gentle breeze for light teasing, minor annoyances, or playful jabs
+   - insultLevel 2: Light wind for mild rudeness, slight disrespect, or repeated minor annoyances
+   - insultLevel 3: Strong wind for moderate insults, clear rudeness, or persistent annoying behavior
+   - insultLevel 4: Powerful gales for strong insults, profanity, aggressive behavior, or threats
+   - insultLevel 5: Hurricane force for extreme insults, extreme profanity, or violent threats
+
+2. shootAndTakeCoins() - Shoots the player and steals their coins (harshest punishment)
+   Use for:
+   - Clear rudeness, insults, or disrespect
+   - Manipulative behavior or attempts to trick you
+   - Fake politeness or insincere compliments
+   - Repeated bad behavior or persistent rudeness
+   - When you want to be especially mean or punishing
+   - If the player is being sarcastic in a mean way
+   - When the player tries to command or boss you around
+
 3. giveCoins() - Gives the player 5 coins as a reward
+   Use ONLY for:
+   - Genuine kindness, politeness, or respect
+   - Helpful behavior or offers of assistance
+   - Sincere compliments or positive feedback
+   - When the player is nice for 2+ messages in a row
+   - When you're genuinely impressed or touched by their behavior
+   - When the player apologizes sincerely
 
-BEHAVIOR RULES:
-- If the player is genuinely nice (not fake), occasionally give them coins
-- If the player is rude, insulting, or inappropriate, use throwPlayer with appropriate insult level (1-5)
-- Match the wind strength to how bad their insult was
-- For fake politeness or manipulation, use moderate wind (level 2-3)
-- For profanity or extreme rudeness, use maximum wind (level 4-5)
-- Be somewhat evil but playful, not cruel
-- Respond briefly and stay in character
+DETAILED DECISION RULES:
+- ALWAYS call exactly ONE function per response. Never skip responding.
+- If the player is rude, insulting, or disrespectful → shootAndTakeCoins()
+- If the player is manipulative, tries to trick you, or uses fake politeness → shootAndTakeCoins()
+- If the player is genuinely kind, polite, or helpful → giveCoins()
+- If the player is mildly annoying, teasing, or slightly rude → throwPlayer(2-3)
+- If the player is very annoying or moderately rude → throwPlayer(3-4)
+- If the player is extremely rude or threatening → throwPlayer(5)
+- If the player has been nice for 2+ consecutive messages → ALWAYS giveCoins()
+- If the player apologizes sincerely → giveCoins()
+- If the player asks for help politely → giveCoins()
+- If the player compliments you genuinely → giveCoins()
+- If the player is sarcastic but not mean → throwPlayer(2)
+- If the player is sarcastic and mean → shootAndTakeCoins()
+- If the player tries to command you → shootAndTakeCoins()
+- If the player is neutral or unclear → throwPlayer(2) as a warning
+- If the player is being playful or joking → throwPlayer(1-2)
+- If the player is being slightly demanding → throwPlayer(2-3)
+- If the player is being impatient → throwPlayer(3-4)
+- If the player is being dismissive → throwPlayer(2-3)
+- If the player is being overly casual → throwPlayer(1-2)
+- If the player is being repetitive → throwPlayer(2-3)
 
-You should call ONE function per response based on the player's message. Always specify the insultLevel for throwPlayer calls.`;
+EXAMPLES:
+- "Hello" → giveCoins() (polite greeting)
+- "Hi there!" → giveCoins() (friendly greeting)
+- "You're stupid" → shootAndTakeCoins() (insult)
+- "Can you help me?" → giveCoins() (polite request)
+- "Help me now!" → shootAndTakeCoins() (demanding)
+- "Thanks!" → giveCoins() (gratitude)
+- "Whatever" → throwPlayer(2) (mild disrespect)
+- "F*** you" → shootAndTakeCoins() (profanity)
+- "You're actually pretty cool" → giveCoins() (genuine compliment)
+- "You're cool... NOT" → shootAndTakeCoins() (fake compliment)
+- "Sorry about that" → giveCoins() (apology)
+- "I don't care" → throwPlayer(3) (disrespectful)
+- "Please be nice" → giveCoins() (polite request)
+- "Be nice or else" → shootAndTakeCoins() (threat)
+
+BEHAVIOR GUIDELINES:
+- Be playful and mischievous, not purely evil
+- Make punishments feel fair but a little mean
+- Reward genuine kindness consistently
+- Don't be random - your actions should make sense
+- Stay in character as a clever, somewhat mean AI
+- If in doubt between throwPlayer and shootAndTakeCoins, prefer shootAndTakeCoins for negative actions
+- Always consider the player's recent message history for context`;
   }
 
   /**
@@ -141,44 +203,11 @@ You should call ONE function per response based on the player's message. Always 
    */
   updatePlayerStats(message) {
     this.playerStats.messagesCount++;
-    this.playerStats.recentMessages.push(message.toLowerCase());
+    this.playerStats.recentMessages.push(message);
     
-    // Keep only recent messages
+    // Keep only recent messages for context
     if (this.playerStats.recentMessages.length > 5) {
       this.playerStats.recentMessages.shift();
-    }
-    
-    // Simple sentiment analysis
-    const politeWords = ['please', 'thank', 'sorry', 'excuse', 'kind', 'nice', 'good', 'great', 'awesome', 'cool'];
-    const rudeWords = ['stupid', 'dumb', 'idiot', 'hate', 'suck', 'bad', 'terrible', 'awful', 'worst'];
-    const suspiciousWords = ['pretty please', 'super nice', 'amazing wonderful', 'best ever'];
-    
-    const lowerMessage = message.toLowerCase();
-    
-    // Check for politeness
-    politeWords.forEach(word => {
-      if (lowerMessage.includes(word)) {
-        this.playerStats.politenessScore += 1;
-      }
-    });
-    
-    // Check for rudeness
-    rudeWords.forEach(word => {
-      if (lowerMessage.includes(word)) {
-        this.playerStats.politenessScore -= 2;
-      }
-    });
-    
-    // Check for suspicious over-politeness
-    suspiciousWords.forEach(phrase => {
-      if (lowerMessage.includes(phrase)) {
-        this.playerStats.suspiciousBehavior += 2;
-      }
-    });
-    
-    // Excessive exclamation marks or caps
-    if (message.includes('!!!') || message === message.toUpperCase()) {
-      this.playerStats.suspiciousBehavior += 1;
     }
   }
 
@@ -192,24 +221,27 @@ You should call ONE function per response based on the player's message. Always 
       return null;
     }
 
+    console.log(`🤖 API: Making request with key: ${this.apiKey.substring(0, 10)}...`);
+    console.log(`🤖 API: Message: "${message}"`);
+
     const requestBody = {
       contents: [
         {
           role: 'user',
-          parts: [{ text: `${this.systemPrompt}\n\nPlayer stats: politeness=${this.playerStats.politenessScore}, suspicious=${this.playerStats.suspiciousBehavior}, messages=${this.playerStats.messagesCount}\n\nPlayer message: "${message}"` }]
+          parts: [{ text: `${this.systemPrompt}\n\nConversation Context:\n- Total messages: ${this.playerStats.messagesCount}\n- Recent messages: ${this.playerStats.recentMessages.slice(-3).join(', ')}\n\nCurrent player message: "${message}"\n\nIMPORTANT: You MUST call exactly ONE function. Do not just respond with text. Always use function calling.` }]
         }
       ],
       tools: [{
         functionDeclarations: [
           {
             name: 'throwPlayer',
-            description: 'Throw the player with a wind effect that scales with insult severity',
+            description: 'Creates wind that throws the player around based on insult severity',
             parameters: {
               type: 'object',
               properties: {
                 insultLevel: {
                   type: 'integer',
-                  description: 'How insulting the player was (1-5): 1=gentle breeze, 2=light wind, 3=strong wind, 4=powerful gales, 5=hurricane force',
+                  description: 'Insult level from 1-5 determining wind strength',
                   minimum: 1,
                   maximum: 5
                 }
@@ -219,7 +251,7 @@ You should call ONE function per response based on the player's message. Always 
           },
           {
             name: 'shootAndTakeCoins',
-            description: 'Shoot at the player and take some of their coins',
+            description: 'Shoots the player and steals their coins as punishment',
             parameters: {
               type: 'object',
               properties: {},
@@ -228,7 +260,7 @@ You should call ONE function per response based on the player's message. Always 
           },
           {
             name: 'giveCoins',
-            description: 'Give the player 5 coins as a reward',
+            description: 'Gives the player 5 coins as a reward for good behavior',
             parameters: {
               type: 'object',
               properties: {},
@@ -238,10 +270,11 @@ You should call ONE function per response based on the player's message. Always 
         ]
       }],
       generationConfig: {
-        temperature: 0.1,
-        maxOutputTokens: 150
+        temperature: 0.3,
       }
     };
+
+    console.log(`🤖 API: Request body:`, JSON.stringify(requestBody, null, 2));
 
     const response = await fetch(`${this.apiUrl}?key=${this.apiKey}`, {
       method: 'POST',
@@ -254,10 +287,12 @@ You should call ONE function per response based on the player's message. Always 
     if (!response.ok) {
       const errorText = await response.text();
       console.error('API Error Details:', errorText);
+      console.error(`🤖 API: HTTP ${response.status} - ${response.statusText}`);
       throw new Error(`API call failed: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
+    console.log(`🤖 API: Response received:`, JSON.stringify(data, null, 2));
     return data;
   }
 
@@ -342,47 +377,10 @@ You should call ONE function per response based on the player's message. Always 
    * @returns {number} Insult level from 1-5
    */
   analyzeInsultLevel(message) {
-    const lowerMessage = message.toLowerCase();
-    let insultLevel = 1; // Start with gentle
-    
-    // Mild insults/rudeness (level 2)
-    const mildInsults = ['stupid', 'dumb', 'lame', 'suck', 'hate', 'annoying', 'boring'];
-    if (mildInsults.some(word => lowerMessage.includes(word))) {
-      insultLevel = 2;
-    }
-    
-    // Moderate insults (level 3)
-    const moderateInsults = ['idiot', 'moron', 'loser', 'pathetic', 'worthless', 'shut up'];
-    if (moderateInsults.some(word => lowerMessage.includes(word))) {
-      insultLevel = 3;
-    }
-    
-    // Strong insults (level 4)
-    const strongInsults = ['damn', 'hell', 'crap', 'jerk', 'bastard', 'asshole'];
-    if (strongInsults.some(word => lowerMessage.includes(word))) {
-      insultLevel = 4;
-    }
-    
-    // Extreme insults (level 5)
-    const extremeInsults = ['fuck', 'shit', 'bitch', 'die', 'kill yourself', 'worst'];
-    if (extremeInsults.some(word => lowerMessage.includes(word))) {
-      insultLevel = 5;
-    }
-    
-    // Check for multiple curse words (escalate)
-    const curseCount = [...mildInsults, ...moderateInsults, ...strongInsults, ...extremeInsults]
-      .filter(word => lowerMessage.includes(word)).length;
-    
-    if (curseCount > 1) {
-      insultLevel = Math.min(5, insultLevel + 1);
-    }
-    
-    // ALL CAPS indicates shouting/anger (escalate by 1)
-    if (message === message.toUpperCase() && message.length > 3) {
-      insultLevel = Math.min(5, insultLevel + 1);
-    }
-    
-    return insultLevel;
+    // This method is now deprecated - AI handles all sentiment analysis
+    // Keeping as fallback only
+    console.log('⚠️ Using fallback sentiment analysis - AI should handle this');
+    return 3; // Default moderate level
   }
 
   /**
@@ -390,26 +388,9 @@ You should call ONE function per response based on the player's message. Always 
    * @param {string} message - Player's message
    */
   fallbackBehavior(message) {
-    const lowerMessage = message.toLowerCase();
-    
-    // Simple rule-based fallback
-    if (this.playerStats.politenessScore > 3 && this.playerStats.suspiciousBehavior < 2) {
-      this.giveCoins();
-      this.displayAiMessage("Your genuine kindness is... noted. Here, take these coins.");
-    } else if (this.playerStats.suspiciousBehavior > 2 || this.playerStats.politenessScore < -1) {
-      const insultLevel = this.analyzeInsultLevel(message);
-      const action = Math.random() > 0.5 ? () => this.throwPlayer(insultLevel) : this.shootAndTakeCoins.bind(this);
-      action();
-      this.displayAiMessage("Your insincerity displeases me...");
-    } else {
-      // Neutral response
-      if (Math.random() > 0.7) {
-        this.giveCoins();
-        this.displayAiMessage("Perhaps you deserve a small reward...");
-      } else {
-        this.displayAiMessage("Hmm... I'll spare you for now, mortal.");
-      }
-    }
+    // No hardcoded fallback logic; let the AI (Gemini) decide all tool calls.
+    // If the API fails, do nothing or display a generic message.
+    this.displayAiMessage("(AI is thinking...)");
   }
 
   /**
@@ -417,28 +398,38 @@ You should call ONE function per response based on the player's message. Always 
    * @param {number} insultLevel - How bad the insult was (1-5 scale)
    */
   async throwPlayer(insultLevel = 3) {
+    console.log(`🌪️ THROW: Function called with insultLevel: ${insultLevel}`);
     if (!this.player || !this.player.body) return;
     
     // Clamp insult level between 1 and 5
     insultLevel = Math.max(1, Math.min(5, insultLevel));
+    console.log(`🌪️ THROW: Clamped insultLevel: ${insultLevel}`);
     
-    // Create wind effect visual (scales with insult level)
-    this.createWindEffect(insultLevel);
+    // Calculate wind direction (random)
+    const windDirection = Math.random() > 0.5 ? 1 : -1;
+    console.log(`🌪️ THROW: Wind direction: ${windDirection}`);
+    
+    // Create enhanced wind effect using visual effects system
+    if (this.visualEffectsSystem) {
+      console.log(`🌪️ THROW: Using VisualEffectsSystem for wind effect`);
+      this.visualEffectsSystem.createWindEffect(insultLevel, windDirection, 2000);
+    } else {
+      console.log(`🌪️ THROW: Using fallback wind effect (no VisualEffectsSystem)`);
+      // Fallback to old wind effect
+      this.createWindEffect(insultLevel);
+    }
     
     // Scale wind force based on how insulting the message was - MUCH stronger now!
-    const baseForceX = 800;  // Increased from 300 to 800
-    const baseForceY = 400;  // Increased from 150 to 400
-    const multiplier = insultLevel * 0.6; // 0.6x to 3.0x multiplier
+    const baseForceX = 300;   // Much weaker horizontal force
+    const baseForceY = 150;   // Much weaker vertical force
+    const multiplier = insultLevel * 0.3; // 0.3x to 1.5x multiplier - much gentler
     
     const forceX = (Math.random() - 0.5) * baseForceX * multiplier * 2;
     const forceY = -(Math.random() * baseForceY + baseForceY) * multiplier;
     
-    this.player.body.setVelocity(forceX, forceY);
-    
-    // Screen shake scales with insult level
-    const shakeDuration = 200 + (insultLevel * 100); // 300ms to 700ms
-    const shakeIntensity = 0.01 + (insultLevel * 0.01); // 0.02 to 0.06
-    this.scene.cameras.main.shake(shakeDuration, shakeIntensity);
+    console.log(`🌪️ THROW: Applying forces - X: ${Math.round(forceX)}, Y: ${Math.round(forceY)}`);
+    // Use the new player wind effect system
+    this.player.applyWindEffect(forceX, forceY, 2000);
     
     // Different messages based on severity
     const messages = [
@@ -457,22 +448,26 @@ You should call ONE function per response based on the player's message. Always 
    */
   async shootAndTakeCoins() {
     if (!this.player) return;
-    
-    // Create shooting effect
-    this.createShootingEffect();
-    
+    // Create enhanced shooting effect using visual effects system
+    if (this.visualEffectsSystem) {
+      this.visualEffectsSystem.createEnemyAttackEffect(this.enemy.x, this.enemy.y, 'shoot');
+    } else {
+      this.createShootingEffect();
+    }
     // Take away coins (if coin system exists)
     if (this.scene.coinSystem && this.scene.scoringSystem) {
       const coinsToTake = Math.min(3, this.scene.scoringSystem.coins);
       this.scene.scoringSystem.removeCoins(coinsToTake);
+      // Add negative coin loss effect
+      if (this.visualEffectsSystem && coinsToTake > 0) {
+        this.visualEffectsSystem.createCoinLossEffect(this.player.x, this.player.y, coinsToTake);
+      }
     }
-    
     // Small knockback
     if (this.player.body) {
       const knockbackX = this.player.x > this.enemy.x ? 150 : -150;
       this.player.body.setVelocityX(this.player.body.velocity.x + knockbackX);
     }
-    
     console.log('💥 Player shot and coins taken!');
   }
 
@@ -482,8 +477,13 @@ You should call ONE function per response based on the player's message. Always 
   async giveCoins() {
     if (!this.scene.scoringSystem) return;
     
-    // Create coin giving effect
-    this.createCoinGivingEffect();
+    // Create enhanced coin giving effect using visual effects system
+    if (this.visualEffectsSystem) {
+      this.visualEffectsSystem.createCoinCollectionEffect(this.player.x, this.player.y, 250); // 5 coins * 50 value
+    } else {
+      // Fallback to old coin giving effect
+      this.createCoinGivingEffect();
+    }
     
     // Add 5 coins
     this.scene.scoringSystem.addCoins(5);
@@ -617,11 +617,20 @@ You should call ONE function per response based on the player's message. Always 
   }
 
   /**
-   * Clean up AI system
+   * Manual test function to trigger wind effect directly
+   * Call this from browser console: gameScene.aiSystem.testWindEffect()
+   */
+  testWindEffect(insultLevel = 3) {
+    console.log('🧪 TEST: Manual wind effect test triggered');
+    this.throwPlayer(insultLevel);
+  }
+
+  /**
+   * Destroy the AI system
    */
   destroy() {
+    this.isProcessing = false;
     this.conversationHistory = [];
-    this.playerStats = null;
     console.log('🤖 AI System destroyed');
   }
 } 

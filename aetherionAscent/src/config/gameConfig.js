@@ -70,6 +70,26 @@ export const CONFIG = {
   },
 
   /**
+   * Enhanced visual effects configuration
+   */
+  VISUAL_EFFECTS: {
+    WIND_PARTICLES_PER_INTENSITY: 20,  // Particles per wind intensity level
+    WIND_DURATION_BASE: 2000,          // Base duration for wind effects
+    WIND_SCREEN_SHAKE_MULTIPLIER: 2,   // Screen shake intensity multiplier
+    
+    COIN_SPARKLE_COUNT: 15,            // Number of sparkles per coin collection
+    COIN_TRAIL_DURATION: 300,          // Duration of coin trail effect
+    SCORE_POPUP_DURATION: 1000,        // Duration of score popup animation
+    
+    PLAYER_IMPACT_PARTICLES: 10,       // Base particle count for player impacts
+    PLAYER_IMPACT_SCALE: 1.0,          // Base scale for impact effects
+    
+    ENEMY_ATTACK_SCREEN_SHAKE: 2,      // Screen shake intensity for enemy attacks
+    ENEMY_PROJECTILE_SPEED: 150,       // Speed of enemy projectiles
+    ENEMY_MUZZLE_FLASH_DURATION: 150   // Duration of muzzle flash effect
+  },
+
+  /**
    * Camera behavior and movement
    */
   CAMERA: {

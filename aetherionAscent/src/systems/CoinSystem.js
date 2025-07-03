@@ -21,6 +21,7 @@ export class CoinSystem {
   constructor(scene, scoringSystem) {
     this.scene = scene;
     this.scoringSystem = scoringSystem;
+    this.visualEffectsSystem = null;
     
     // Coin management
     this.coins = [];
@@ -43,6 +44,14 @@ export class CoinSystem {
     this.createCoinTexture();
     
     console.log('🪙 Coin system initialized');
+  }
+
+  /**
+   * Set visual effects system reference
+   * @param {VisualEffectsSystem} visualEffectsSystem - Visual effects system instance
+   */
+  setVisualEffectsSystem(visualEffectsSystem) {
+    this.visualEffectsSystem = visualEffectsSystem;
   }
 
   /**
@@ -245,8 +254,13 @@ export class CoinSystem {
     // Award points through scoring system
     const coinValue = this.scoringSystem.collectCoin(coin.coinData.value);
     
-    // Create collection effect
-    this.createCollectionEffect(coin.x, coin.y);
+    // Create enhanced collection effect using visual effects system
+    if (this.visualEffectsSystem) {
+      this.visualEffectsSystem.createCoinCollectionEffect(coin.x, coin.y, coinValue);
+    } else {
+      // Fallback to old collection effect
+      this.createCollectionEffect(coin.x, coin.y);
+    }
     
     // Remove coin light
     if (coin.coinData.light) {

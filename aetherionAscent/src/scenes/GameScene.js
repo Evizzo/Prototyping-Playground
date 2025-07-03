@@ -8,6 +8,7 @@ import { CoinSystem } from '../systems/CoinSystem.js';
 import { BackgroundSystem } from '../systems/BackgroundSystem.js';
 import { AiSystem } from '../systems/AiSystem.js';
 import { ChatSystem } from '../systems/ChatSystem.js';
+import { VisualEffectsSystem } from '../systems/VisualEffectsSystem.js';
 
 // Import shaders as text
 import bloomShader from '../shaders/bloom.frag?raw';
@@ -55,6 +56,7 @@ export class GameScene extends Phaser.Scene {
     this.backgroundLayers = [];
     this.ambientParticles = null;
     this.lightManager = null;
+    this.visualEffectsSystem = null;
     
     // Post-processing
     this.postProcessingPipeline = null;
@@ -111,6 +113,9 @@ export class GameScene extends Phaser.Scene {
     // Initialize core game systems
     this.initializeCoreSystems();
     
+    // Initialize visual effects system
+    this.visualEffectsSystem = new VisualEffectsSystem(this);
+    
     // Setup camera behavior
     this.setupCamera();
     
@@ -130,10 +135,29 @@ export class GameScene extends Phaser.Scene {
       this.createPlayer();
       this.createScoreDisplay();
       this.initializeAiSystems();
+      
+      // Connect AI system to visual effects system
+      if (this.aiSystem && this.visualEffectsSystem) {
+        this.aiSystem.setVisualEffectsSystem(this.visualEffectsSystem);
+      }
+      
+      // Connect coin system to visual effects system
+      if (this.coinSystem && this.visualEffectsSystem) {
+        this.coinSystem.setVisualEffectsSystem(this.visualEffectsSystem);
+      }
+      
+      // Connect player to visual effects system
+      if (this.player && this.visualEffectsSystem) {
+        this.player.setVisualEffectsSystem(this.visualEffectsSystem);
+      }
     });
     
     console.log('✨ Mystical world created successfully!');
     this.logSystemStatus();
+    
+    // Make scene globally accessible for debugging
+    window.gameScene = this;
+    console.log('🔧 Debug: gameScene is now available globally. Try: gameScene.aiSystem.testWindEffect()');
   }
 
   /**
@@ -728,35 +752,37 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Update visual effects and atmospheric elements - DISABLED FOR PHASE 1
+   * Update visual effects and atmospheric elements
    * @param {number} deltaTime - Time since last frame (seconds)
    */
   updateVisualEffects(deltaTime) {
-    // PHASE 1: DISABLE ALL VISUAL EFFECT UPDATES TO PREVENT MOVEMENT
-    // Keep everything completely static
+    // Update ambient particles
+    if (this.ambientParticles) {
+      this.ambientParticles.update();
+    }
     
-    // this.ambientParticles updates disabled
-    // this.updateBackgroundParallax() disabled
+    // Update visual effects system
+    if (this.visualEffectsSystem) {
+      this.visualEffectsSystem.update(deltaTime);
+    }
     
-    // No visual updates to prevent any movement or teleporting
+    // Update background parallax
+    this.updateBackgroundParallax();
   }
 
   /**
    * Update background parallax effect
    */
   updateBackgroundParallax() {
-    // Temporarily disabled to prevent visual glitches
-    // Will re-enable when graphics are more stable
+    const cameraY = this.cameras.main.scrollY;
     
-    // const cameraY = this.cameras.main.scrollY;
-    // 
-    // this.backgroundLayers.forEach((layer, index) => {
-    //   if (layer && layer.setY) {
-    //     // Different layers move at different speeds for depth effect
-    //     const parallaxSpeed = 0.1 + (index * 0.05);
-    //     layer.setY(cameraY * parallaxSpeed);
-    //   }
-    // });
+    this.backgroundLayers.forEach((layer, index) => {
+      if (layer && layer.setY) {
+        // Different layers move at different speeds for depth effect
+        const parallaxSpeed = 0.1 + (index * 0.05);
+        layer.setY(cameraY * parallaxSpeed);
+      }
+    });
   }
 
   /**
@@ -863,6 +889,11 @@ export class GameScene extends Phaser.Scene {
     
     if (this.ambientParticles) {
       this.ambientParticles.destroy();
+    }
+    
+    // Destroy visual effects system
+    if (this.visualEffectsSystem) {
+      this.visualEffectsSystem.destroy();
     }
     
     // Destroy AI and enemy systems

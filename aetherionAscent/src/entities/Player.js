@@ -38,6 +38,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     
     // Store chat system reference for input blocking
     this.chatSystem = chatSystem;
+    this.visualEffectsSystem = null;
     
     // Player state - optimized for strategic platforming
     this.playerState = {
@@ -52,6 +53,15 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       jumpForce: 520,        // Higher jump for strategic gap navigation
       wallJumpForce: 460,    // Higher wall jump force
       wallSlideSpeed: 100
+    };
+    
+    // Wind effect system
+    this.windEffect = {
+      isActive: false,
+      startTime: 0,
+      duration: 0,
+      forceX: 0,
+      forceY: 0
     };
     
     // Input handling
@@ -90,6 +100,61 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
    */
   setChatSystem(chatSystem) {
     this.chatSystem = chatSystem;
+  }
+
+  /**
+   * Set visual effects system reference
+   * @param {VisualEffectsSystem} visualEffectsSystem - Visual effects system instance
+   */
+  setVisualEffectsSystem(visualEffectsSystem) {
+    this.visualEffectsSystem = visualEffectsSystem;
+  }
+
+  /**
+   * Apply wind effect that overrides normal movement
+   * @param {number} forceX - Horizontal force
+   * @param {number} forceY - Vertical force
+   * @param {number} duration - Duration in milliseconds
+   */
+  applyWindEffect(forceX, forceY, duration = 2000) {
+    console.log(`🌪️ PLAYER: Wind effect applied - X: ${Math.round(forceX)}, Y: ${Math.round(forceY)}, Duration: ${duration}ms`);
+    
+    this.windEffect.isActive = true;
+    this.windEffect.startTime = this.scene.time.now;
+    this.windEffect.duration = duration;
+    this.windEffect.forceX = forceX;
+    this.windEffect.forceY = forceY;
+    
+    // Apply initial force
+    this.body.setVelocity(forceX, forceY);
+    
+    // Clear any existing movement input
+    this.playerState.horizontalSpeed = 0;
+  }
+
+  /**
+   * Update wind effect
+   * @param {number} deltaTime - Time since last frame
+   */
+  updateWindEffect(deltaTime) {
+    if (!this.windEffect.isActive) return;
+    
+    const elapsed = this.scene.time.now - this.windEffect.startTime;
+    const progress = elapsed / this.windEffect.duration;
+    
+    if (progress >= 1) {
+      // Wind effect finished
+      this.windEffect.isActive = false;
+      console.log('🌪️ PLAYER: Wind effect finished');
+    } else {
+      // Apply wind force with gradual decay
+      const decayFactor = 1 - (progress * 0.5); // Gradual decay over time
+      const currentForceX = this.windEffect.forceX * decayFactor;
+      const currentForceY = this.windEffect.forceY * decayFactor;
+      
+      // Apply wind force (this will override normal movement)
+      this.body.setVelocity(currentForceX, currentForceY);
+    }
   }
 
   /**
@@ -361,13 +426,19 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
    * @param {number} deltaTime - Time since last frame (seconds)
    */
   update(deltaTime) {
+    // Update wind effect first (this overrides normal movement)
+    this.updateWindEffect(deltaTime);
+    
     // Update player state
     this.updateGroundedState();
     this.updateWallInteraction();
     
-    // Handle input
-    this.handleMovementInput(deltaTime);
-    this.handleJumpInput();
+    // Only handle normal input if wind effect is not active
+    if (!this.windEffect.isActive) {
+      // Handle input
+      this.handleMovementInput(deltaTime);
+      this.handleJumpInput();
+    }
     
     // Update visuals
     this.updatePlayerLight();
@@ -503,7 +574,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     // Apply jump
     this.body.setVelocityY(-jumpForce);
     
-    // Visual/audio feedback would go here
+    // Create enhanced jump effect using visual effects system
+    if (this.visualEffectsSystem) {
+      this.visualEffectsSystem.createPlayerImpactEffect(this.x, this.y, 'jump');
+    }
+    
     console.log(`🦘 Jump! Force: ${Math.round(jumpForce)} (Speed bonus: ${Math.round(momentumBonus)})`);
   }
 
@@ -521,6 +596,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     // Update internal speed tracking
     this.playerState.horizontalSpeed = jumpDirection * (this.playerState.maxHorizontalSpeed * 0.8);
     
+    // Create enhanced wall jump effect using visual effects system
+    if (this.visualEffectsSystem) {
+      this.visualEffectsSystem.createPlayerImpactEffect(this.x, this.y, 'wall');
+    }
+    
     console.log(`🧗 Wall jump! Direction: ${jumpDirection > 0 ? 'Right' : 'Left'}`);
   }
 
@@ -528,12 +608,15 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
    * Handle landing effects
    */
   onLanding() {
-    // Landing visual effects could go here
-    // For now, just log the landing
     const impactSpeed = Math.abs(this.body.velocity.y);
+    
+    // Create enhanced landing effect using visual effects system
+    if (this.visualEffectsSystem) {
+      this.visualEffectsSystem.createPlayerImpactEffect(this.x, this.y, 'land');
+    }
+    
     if (impactSpeed > 200) {
       console.log(`💥 Heavy landing! Impact speed: ${Math.round(impactSpeed)}`);
-      // Could trigger screen shake or particle effects here
     }
   }
 
@@ -792,13 +875,21 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
    * Update facing direction for future animation system
    */
   updateFacingDirection() {
+    // Update facing direction based on velocity
     if (this.body.velocity.x > 10) {
       this.playerState.facingDirection = 1;
-      this.setFlipX(false);
     } else if (this.body.velocity.x < -10) {
       this.playerState.facingDirection = -1;
-      this.setFlipX(true);
     }
+  }
+
+  /**
+   * Test wind effect directly
+   * Call from browser console: gameScene.player.testWindEffect()
+   */
+  testWindEffect(forceX = 1000, forceY = -500) {
+    console.log('🧪 PLAYER TEST: Manual wind effect test');
+    this.applyWindEffect(forceX, forceY, 2000);
   }
 
   /**
