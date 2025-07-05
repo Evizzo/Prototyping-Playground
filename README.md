@@ -2,19 +2,11 @@
 
 This repository is a space for quick experiments, creative coding, and rapid prototyping. 
 
-## 🎯 The Mission
+## Current Projects
 
-- 🎮 **Game** [`aetherionAscent/`](./aetherionAscent) ✅ — *AI agent enemy vs player platformer with real-time chat*
-- 🌐 🤖 **AI Web App** — *Intelligent conversational web application with AI integration* 🚧 *WIP in private repo - deployed link coming soon*
-- 📱 **Mobile App** — *Native or cross-platform mobile app*
+- 🎮 [`aetherionAscent/`](./aetherionAscent) — *AI agent enemy vs player platformer with real-time chat*
 
-## 🚀 Why Build All The Things?
-
-- **Explore** - Each app type has unique challenges and solutions
-- **Learn by doing** - Experience is the best teacher
-- **Push boundaries** - Try new technologies and approaches
-- **Master the full stack** - From games to APIs, understand the whole ecosystem
-- **And more...** - The journey itself is the destination
+These are just prototypes and experiments. Nothing here is meant to be production-ready.
 
 ## 🛠️ Tech Philosophy
 
