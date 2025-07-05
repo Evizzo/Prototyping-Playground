@@ -44,9 +44,15 @@ I'm your intelligent companion for building the perfect PC. Here's what I can he
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const aiAgent = useRef<PcBuilderAI | null>(null);
+  const [aiHistory, setAiHistory] = useState<any[]>([]);
 
   useEffect(() => {
-    aiAgent.current = new PcBuilderAI();
+    const initAgent = async () => {
+      const agent = new PcBuilderAI();
+      await agent.loadData();
+      aiAgent.current = agent;
+    };
+    initAgent();
   }, []);
 
   useEffect(() => {
@@ -77,17 +83,23 @@ I'm your intelligent companion for building the perfect PC. Here's what I can he
     setIsLoading(true);
 
     try {
-      const response = await aiAgent.current?.chat(inputValue);
+      if (!aiAgent.current) {
+        throw new Error("AI Agent not initialized");
+      }
+      
+      const result = await aiAgent.current.sendMessage(inputValue, aiHistory);
       
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: response || '❌ **Error**: Sorry, I encountered an error processing your request.',
+        text: result.response || '❌ **Error**: Sorry, I encountered an error processing your request.',
         sender: 'ai',
         timestamp: new Date()
       };
 
       setMessages(prev => [...prev, aiMessage]);
+      setAiHistory(result.history);
     } catch (error) {
+      console.error('Chat Error:', error);
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         text: '❌ **Error**: Sorry, I encountered an error. Please try again or ask a different question.',

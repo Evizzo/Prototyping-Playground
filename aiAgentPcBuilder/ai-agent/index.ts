@@ -24,16 +24,111 @@ interface DataSources {
   power_supplies: Component[];
 }
 
+const getComponentDataDeclaration = {
+  name: "getComponentData",
+  description: "Get a list of PC components from a specific category, with optional filters.",
+  parameters: {
+    type: "OBJECT",
+    properties: {
+      category: {
+        type: "STRING",
+        description: "The category of components to retrieve (e.g., 'graphics_cards', 'processors').",
+        enum: ['graphics_cards', 'processors', 'motherboards', 'memory', 'storage', 'power_supplies']
+      },
+      filter: {
+        type: "OBJECT",
+        description: "Optional filters to apply.",
+        properties: {
+          maxPrice: { type: "NUMBER", description: "Maximum price." },
+          minPrice: { type: "NUMBER", description: "Minimum price." },
+          brand: { type: "STRING", description: "Component brand." }
+        }
+      }
+    },
+    required: ["category"]
+  }
+};
+
+const recommendGamingBuildDeclaration = {
+  name: "recommendGamingBuild",
+  description: "Recommends a complete gaming PC build based on budget or performance tier.",
+  parameters: {
+    type: "OBJECT",
+    properties: {
+      budget: {
+        type: "NUMBER",
+        description: "The total budget for the PC build."
+      },
+      performanceTier: {
+        type: "STRING",
+        description: "The desired performance tier ('entry', 'mid', 'high-end')."
+      }
+    }
+  }
+};
+
 class PcBuilderAI {
   private model: any;
   private dataSources: DataSources | null = null;
+  
+  private functions: any;
 
   constructor() {
     console.log('🤖 Initializing PcBuilderAI...');
-    this.model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash"
+    
+    this.functions = {
+      getComponentData: (args: { category: string, filter?: any }): Component[] => {
+        const { category, filter } = args;
+        console.log('🔍 Tool Executing: getComponentData', { category, filter });
+        if (!this.dataSources) throw new Error('Data sources not loaded');
+        let components = this.dataSources[category as keyof DataSources] || [];
+        if (filter) {
+          components = components.filter(c => 
+            (!filter.brand || c.brand.toLowerCase() === filter.brand.toLowerCase()) &&
+            (!filter.maxPrice || c.price <= filter.maxPrice) &&
+            (!filter.minPrice || c.price >= filter.minPrice)
+          );
+        }
+        return components;
+      },
+      recommendGamingBuild: (args: { budget?: number, performanceTier?: 'entry' | 'mid' | 'high-end' }): any => {
+        const { budget, performanceTier } = args;
+        console.log('🎮 Tool Executing: recommendGamingBuild', { budget, performanceTier });
+        if (!this.dataSources) throw new Error("Data sources not loaded");
+        const getTieredComponent = (category: keyof DataSources, tier: 'high-end' | 'mid' | 'entry') => {
+          const components = this.dataSources![category];
+          if (!components || components.length === 0) return null;
+          switch (tier) {
+            case 'high-end': return components[0];
+            case 'mid': return components[Math.floor(components.length / 2)] || components[0];
+            case 'entry': return components[components.length - 1];
+            default: return components[0];
+          }
+        };
+        const tier = performanceTier || (budget && budget < 1200 ? 'entry' : (budget && budget <= 2000 ? 'mid' : 'high-end'));
+        const build = {
+          gpu: getTieredComponent('graphics_cards', tier),
+          cpu: getTieredComponent('processors', tier),
+          motherboard: getTieredComponent('motherboards', tier),
+          ram: getTieredComponent('memory', tier),
+          storage: getTieredComponent('storage', tier),
+          psu: getTieredComponent('power_supplies', tier),
+        };
+        const totalCost = Object.values(build).reduce((acc, comp) => acc + (comp?.price || 0), 0);
+        return { tier, build, totalCost };
+      }
+    };
+    
+    // Bind the methods
+    this.functions.getComponentData = this.functions.getComponentData.bind(this);
+    this.functions.recommendGamingBuild = this.functions.recommendGamingBuild.bind(this);
+
+    this.model = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash",
+      tools: [{ functionDeclarations: [getComponentDataDeclaration, recommendGamingBuildDeclaration] }] as any,
     });
-    console.log('✅ AI model initialized successfully');
+    
+    console.log('✅ AI model initialized successfully with tools');
   }
 
   async loadData(): Promise<void> {
@@ -42,12 +137,7 @@ class PcBuilderAI {
       const startTime = Date.now();
       
       const [
-        graphicsCards,
-        processors,
-        motherboards,
-        memory,
-        storage,
-        powerSupplies
+        graphicsCards, processors, motherboards, memory, storage, powerSupplies
       ] = await Promise.all([
         fetch('/data/graphics-cards.json').then(r => r.json()),
         fetch('/data/processors.json').then(r => r.json()),
@@ -68,241 +158,80 @@ class PcBuilderAI {
 
       const loadTime = Date.now() - startTime;
       console.log('✅ Data loaded successfully in', loadTime, 'ms');
-      console.log('📈 Component counts:', {
-        graphics_cards: this.dataSources.graphics_cards?.length || 0,
-        processors: this.dataSources.processors?.length || 0,
-        motherboards: this.dataSources.motherboards?.length || 0,
-        memory: this.dataSources.memory?.length || 0,
-        storage: this.dataSources.storage?.length || 0,
-        power_supplies: this.dataSources.power_supplies?.length || 0
-      });
     } catch (error) {
       console.error('❌ Error loading data:', error);
       throw new Error('Failed to load component data');
     }
   }
-
-  private getComponentData(category: string, filter?: any): Component[] {
-    console.log('🔍 Tool: get_component_data called', { category, filter });
-    
-    if (!this.dataSources) {
-      console.error('❌ Data sources not loaded');
-      throw new Error('Data sources not loaded');
-    }
-
-    let components = this.dataSources[category as keyof DataSources] || [];
-    const originalCount = components.length;
-
-    if (filter) {
-      console.log('🔧 Applying filters:', filter);
-      components = components.filter(component => {
-        if (filter.brand && component.brand.toLowerCase() !== filter.brand.toLowerCase()) {
-          return false;
-        }
-        if (filter.maxPrice && component.price > filter.maxPrice) {
-          return false;
-        }
-        if (filter.minPrice && component.price < filter.minPrice) {
-          return false;
-        }
-        return true;
-      });
-      console.log(`📊 Filtered ${originalCount} → ${components.length} components`);
-    }
-
-    console.log(`✅ Returning ${components.length} ${category} components`);
-    return components;
-  }
-
-  private compareComponents(componentIds: string[], category: string): Component[] {
-    console.log('⚖️ Tool: compare_components called', { componentIds, category });
-    
-    if (!this.dataSources) {
-      console.error('❌ Data sources not loaded');
-      throw new Error('Data sources not loaded');
-    }
-
-    const components = this.dataSources[category as keyof DataSources] || [];
-    const foundComponents = components.filter(component => componentIds.includes(component.id));
-    
-    console.log(`✅ Found ${foundComponents.length}/${componentIds.length} components for comparison`);
-    foundComponents.forEach(comp => console.log(`  - ${comp.name} ($${comp.price})`));
-    
-    return foundComponents;
-  }
-
-  private calculateTotalPrice(components: Array<{id: string, category: string, quantity?: number}>): {
-    components: Array<{name: string, price: number, quantity: number, subtotal: number}>,
-    total: number
-  } {
-    console.log('💰 Tool: calculate_total_price called', { components });
-    
-    if (!this.dataSources) {
-      console.error('❌ Data sources not loaded');
-      throw new Error('Data sources not loaded');
-    }
-
-    const result = {
-      components: [] as Array<{name: string, price: number, quantity: number, subtotal: number}>,
-      total: 0
-    };
-
-    for (const comp of components) {
-      const categoryData = this.dataSources[comp.category as keyof DataSources] || [];
-      const component = categoryData.find(c => c.id === comp.id);
-      
-      if (component) {
-        const quantity = comp.quantity || 1;
-        const subtotal = component.price * quantity;
-        
-        result.components.push({
-          name: component.name,
-          price: component.price,
-          quantity,
-          subtotal
-        });
-        
-        result.total += subtotal;
-        console.log(`  + ${component.name} x${quantity}: $${subtotal.toFixed(2)}`);
-      } else {
-        console.warn(`⚠️ Component not found: ${comp.id} in ${comp.category}`);
-      }
-    }
-
-    console.log(`💵 Total price calculated: $${result.total.toFixed(2)}`);
-    return result;
-  }
-
-  private calculatePrice(): number {
-    // Simple price calculation example - in real implementation this would be more sophisticated
-    const basePrice = 1200; // Base PC build price
-    const variationRange = 800; // Price variation range
-    return basePrice + Math.floor(Math.random() * variationRange);
-  }
-
-  async chat(message: string): Promise<string> {
+  
+  async sendMessage(message: string, history: any[] = []): Promise<{ response: string, history: any[] }> {
     try {
       console.log('🗣️ USER MESSAGE:', message);
       
-      // Check for specific queries and use appropriate tools
-      if (message.toLowerCase().includes('graphics card') || message.toLowerCase().includes('gpu')) {
-        console.log('🔧 TOOL CALLED: getComponentData("graphics_cards")');
-        const gpus = this.getComponentData('graphics_cards');
-        console.log('📊 TOOL OUTPUT:', `Found ${gpus.length} graphics cards`);
+      const contents = [...history, { role: "user", parts: [{ text: message }] }];
+
+      const result = await this.model.generateContent({
+        contents: contents,
+      });
+
+      const response = result.response;
+      const calls = response.functionCalls();
+
+      if (calls && calls.length > 0) {
+        console.log(`🔧 AI requesting ${calls.length} tool(s):`, calls.map((c: any) => c.name));
         
-        const topGpus = gpus.slice(0, 3);
+        contents.push(response.candidates![0].content);
+
+        const toolResponses = await Promise.all(calls.map(async (call: any) => {
+          const func = this.functions[call.name];
+          const toolResult = func ? await func(call.args) : { error: `Function ${call.name} not found.` };
+          
+          console.log(`  > Executing: ${call.name}`, call.args);
+          console.log(`  < Output of ${call.name}:`, toolResult);
+          
+          return {
+            toolCall: call,
+            toolResult: toolResult,
+          };
+        }));
         
-        const response = `# 🎮 **Top Graphics Cards**
+        toolResponses.forEach(toolResponse => {
+            contents.push({
+                role: "tool",
+                parts: [{
+                    functionResponse: {
+                        name: toolResponse.toolCall.name,
+                        response: toolResponse.toolResult,
+                    }
+                }]
+            });
+        });
 
-Here are some of our **best graphics cards** currently available:
+        const finalResult = await this.model.generateContent({ contents });
 
-${topGpus.map(gpu => `## ${gpu.name}
-**Brand:** ${gpu.brand} | **Price:** \`$${gpu.price}\`
-
-- **Memory:** ${gpu.memory}
-- **Performance Score:** ${gpu.performance_score}/100
-- **Power Consumption:** ${gpu.power_consumption}W
-- **Recommended PSU:** ${gpu.recommended_psu}W
-- **Features:** ${gpu.features?.join(', ') || 'N/A'}
-
----`).join('\n\n')}
-
-💡 **Need help choosing?** I can compare specific models or help you find one within your budget! Just ask me something like:
-- "Compare RTX 4090 vs RTX 4080"
-- "Best GPU under $800"
-- "What graphics card for 4K gaming?"`;
+        const finalResponse = finalResult.response.text();
+        console.log('🤖 LLM RESPONSE:', finalResponse);
         
-        console.log('🤖 LLM RESPONSE:', response);
-        return response;
+        contents.push(finalResult.response.candidates[0].content);
+
+        return { response: finalResponse, history: contents };
+
+      } else {
+        const finalResponse = response.text();
+        console.log('🤖 LLM RESPONSE:', finalResponse);
+        
+        if (response.candidates && response.candidates.length > 0) {
+          contents.push(response.candidates[0].content);
+        }
+        
+        return { response: finalResponse, history: contents };
       }
 
-      if (message.toLowerCase().includes('processor') || message.toLowerCase().includes('cpu')) {
-        console.log('🔧 TOOL CALLED: getComponentData("processors")');
-        const cpus = this.getComponentData('processors');
-        console.log('📊 TOOL OUTPUT:', `Found ${cpus.length} processors`);
-        
-        const topCpus = cpus.slice(0, 3);
-        
-        const response = `# 🔧 **Top Processors**
-
-Here are some of our **best processors** currently available:
-
-${topCpus.map(cpu => `## ${cpu.name}
-**Brand:** ${cpu.brand} | **Price:** \`$${cpu.price}\`
-
-| Specification | Value |
-|--------------|-------|
-| **Cores/Threads** | ${cpu.cores}/${cpu.threads} |
-| **Base Clock** | ${cpu.base_clock} GHz |
-| **Boost Clock** | ${cpu.boost_clock} GHz |
-| **Cache L3** | ${cpu.cache_l3} MB |
-| **Socket** | ${cpu.socket} |
-| **TDP** | ${cpu.tdp}W |
-
-**Features:** ${cpu.features?.join(', ') || 'N/A'}
-
----`).join('\n\n')}
-
-💡 **Want to learn more?** I can help you with:
-- "Compare Intel vs AMD processors"
-- "Best CPU for gaming under $400"  
-- "What processor works with Z790 motherboard?"`;
-        
-        console.log('🤖 LLM RESPONSE:', response);
-        return response;
-      }
-
-      // For price calculations
-      if (message.toLowerCase().includes('price') || message.toLowerCase().includes('cost') || message.toLowerCase().includes('calculate')) {
-        console.log('🔧 TOOL CALLED: calculatePrice()');
-        const totalPrice = this.calculatePrice();
-        console.log('📊 TOOL OUTPUT:', `Total price calculated: $${totalPrice}`);
-        
-        const response = `# 💰 **Price Calculation**
-
-I can help you calculate the total cost of your PC build! 
-
-**Current estimated total:** \`$${totalPrice}\`
-
-To get a more accurate price calculation, please tell me:
-- What specific components you're interested in
-- Your budget range
-- What you'll use the PC for (gaming, work, etc.)
-
-**Example:** "Calculate price for RTX 4090 + i9-14900K + 32GB RAM"`;
-        
-        console.log('🤖 LLM RESPONSE:', response);
-        return response;
-      }
-
-      // Default response for other queries
-      console.log('🔧 TOOL CALLED: generateGeneralResponse()');
-      const response = `# 🤖 **How Can I Help?**
-
-I'm here to help you build your perfect PC! Here's what I can assist with:
-
-## 🎯 **My Expertise:**
-- **🎮 Graphics Cards**: Performance comparisons, recommendations
-- **🔧 Processors**: CPU analysis, compatibility checks
-- **💰 Pricing**: Cost calculations and budget planning
-- **🔍 Components**: Search all PC parts in our database
-
-## 💡 **Try asking:**
-- "Show me graphics cards"
-- "What processors are available?"
-- "Calculate build price"
-- "Best gaming setup under $2000"
-
-**What would you like to know about PC building?**`;
-      
-      console.log('📊 TOOL OUTPUT:', 'Generated general help response');
-      console.log('🤖 LLM RESPONSE:', response);
-      return response;
     } catch (error) {
       console.error('❌ ERROR in chat:', error);
       const errorResponse = '❌ **Error**: Sorry, I encountered an error. Please try again.';
       console.log('🤖 LLM RESPONSE:', errorResponse);
-      return errorResponse;
+      return { response: errorResponse, history: [] };
     }
   }
 }
