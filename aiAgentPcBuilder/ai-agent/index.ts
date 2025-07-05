@@ -163,7 +163,7 @@ class PcBuilderAI {
     const genAI = new GoogleGenerativeAI(apiKey);
 
     this.model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash-latest",
+      model: "gemini-2.5-flash",
       tools: [{ functionDeclarations: [getComponentDataDeclaration, recommendGamingBuildDeclaration] }],
       systemInstruction: SYSTEM_PROMPT,
     });
