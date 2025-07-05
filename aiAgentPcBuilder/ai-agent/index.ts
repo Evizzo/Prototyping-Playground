@@ -2,6 +2,13 @@ import {
   GoogleGenerativeAI,
 } from '@google/generative-ai';
 
+// Type declaration for Vite's import.meta.env
+declare global {
+  interface ImportMeta {
+    env: Record<string, string | undefined>;
+  }
+}
+
 // =================================================================================
 // 1. CONFIGURATION & CONSTANTS
 // =================================================================================
