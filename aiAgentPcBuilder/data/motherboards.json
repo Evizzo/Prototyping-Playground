@@ -1,0 +1,152 @@
+{
+  "motherboards": [
+    {
+      "id": "asus-rog-z790-hero",
+      "name": "ASUS ROG Maximus Z790 Hero",
+      "brand": "ASUS",
+      "price": 629.99,
+      "socket": "LGA1700",
+      "chipset": "Z790",
+      "form_factor": "ATX",
+      "memory_slots": 4,
+      "max_memory": 128,
+      "memory_type": ["DDR5"],
+      "memory_speed": ["DDR5-7800+"],
+      "expansion_slots": {
+        "pcie_x16": 2,
+        "pcie_x8": 1,
+        "pcie_x4": 1,
+        "pcie_x1": 1
+      },
+      "storage": {
+        "m2_slots": 5,
+        "sata_ports": 6
+      },
+      "usb_ports": {
+        "usb_3_2_gen2": 8,
+        "usb_3_2_gen1": 6,
+        "usb_2_0": 4,
+        "usb_c": 2
+      },
+      "networking": {
+        "ethernet": "2.5GbE",
+        "wifi": "Wi-Fi 6E",
+        "bluetooth": "5.3"
+      },
+      "audio": "SupremeFX 7.1",
+      "features": ["RGB Lighting", "Overclocking", "Q-Code Display", "WiFi 6E"],
+      "release_date": "2022-10-20"
+    },
+    {
+      "id": "msi-pro-z790-a",
+      "name": "MSI PRO Z790-A WiFi",
+      "brand": "MSI",
+      "price": 219.99,
+      "socket": "LGA1700",
+      "chipset": "Z790",
+      "form_factor": "ATX",
+      "memory_slots": 4,
+      "max_memory": 128,
+      "memory_type": ["DDR5"],
+      "memory_speed": ["DDR5-7200+"],
+      "expansion_slots": {
+        "pcie_x16": 2,
+        "pcie_x8": 0,
+        "pcie_x4": 1,
+        "pcie_x1": 2
+      },
+      "storage": {
+        "m2_slots": 4,
+        "sata_ports": 6
+      },
+      "usb_ports": {
+        "usb_3_2_gen2": 6,
+        "usb_3_2_gen1": 4,
+        "usb_2_0": 6,
+        "usb_c": 1
+      },
+      "networking": {
+        "ethernet": "1GbE",
+        "wifi": "Wi-Fi 6E",
+        "bluetooth": "5.3"
+      },
+      "audio": "Realtek ALC4080",
+      "features": ["RGB Lighting", "Overclocking", "WiFi 6E", "DDR5 Ready"],
+      "release_date": "2022-10-20"
+    },
+    {
+      "id": "asus-x670e-hero",
+      "name": "ASUS ROG Crosshair X670E Hero",
+      "brand": "ASUS",
+      "price": 699.99,
+      "socket": "AM5",
+      "chipset": "X670E",
+      "form_factor": "ATX",
+      "memory_slots": 4,
+      "max_memory": 128,
+      "memory_type": ["DDR5"],
+      "memory_speed": ["DDR5-6400+"],
+      "expansion_slots": {
+        "pcie_x16": 2,
+        "pcie_x8": 1,
+        "pcie_x4": 1,
+        "pcie_x1": 1
+      },
+      "storage": {
+        "m2_slots": 4,
+        "sata_ports": 8
+      },
+      "usb_ports": {
+        "usb_3_2_gen2": 10,
+        "usb_3_2_gen1": 4,
+        "usb_2_0": 4,
+        "usb_c": 2
+      },
+      "networking": {
+        "ethernet": "2.5GbE",
+        "wifi": "Wi-Fi 6E",
+        "bluetooth": "5.2"
+      },
+      "audio": "SupremeFX 7.1",
+      "features": ["RGB Lighting", "Overclocking", "Q-Code Display", "WiFi 6E"],
+      "release_date": "2022-09-27"
+    },
+    {
+      "id": "msi-b650-pro",
+      "name": "MSI B650 Gaming Plus WiFi",
+      "brand": "MSI",
+      "price": 199.99,
+      "socket": "AM5",
+      "chipset": "B650",
+      "form_factor": "ATX",
+      "memory_slots": 4,
+      "max_memory": 128,
+      "memory_type": ["DDR5"],
+      "memory_speed": ["DDR5-5200+"],
+      "expansion_slots": {
+        "pcie_x16": 2,
+        "pcie_x8": 0,
+        "pcie_x4": 1,
+        "pcie_x1": 2
+      },
+      "storage": {
+        "m2_slots": 3,
+        "sata_ports": 6
+      },
+      "usb_ports": {
+        "usb_3_2_gen2": 4,
+        "usb_3_2_gen1": 6,
+        "usb_2_0": 6,
+        "usb_c": 1
+      },
+      "networking": {
+        "ethernet": "1GbE",
+        "wifi": "Wi-Fi 6",
+        "bluetooth": "5.2"
+      },
+      "audio": "Realtek ALC897",
+      "features": ["RGB Lighting", "WiFi 6", "DDR5 Ready", "Gaming"],
+      "release_date": "2022-09-27"
+    }
+  ]
+} 

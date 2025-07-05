@@ -5,6 +5,7 @@ This repository is a space for quick experiments, creative coding, and rapid pro
 ## Current Projects
 
 - 🎮 [`aetherionAscent/`](./aetherionAscent) — *AI agent enemy vs player platformer with real-time chat*
+- 🖥️ [`aiPcBuilder/`](./aiPcBuilder) — *AI Agent PC Builder assistant*
 
 These are just prototypes and experiments. Nothing here is meant to be production-ready.
 
