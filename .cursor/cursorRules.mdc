@@ -8,6 +8,8 @@ Organize code into clear, self-contained units based on responsibility and domai
 
 Encourage Clear Purpose and Intention:
 Ensure each unit of code—whether a function, class, or module—has a single, well-defined role. Avoid mixing concerns. Favor expressive naming that communicates purpose unambiguously, even at the cost of brevity. Prioritize names that convey behavior, intent, and context over generic or abbreviated terms.
+If you cannot separate an function into multiple ones, leave few words comments, so its 
+easier to read the code when going throught.
 
 Leverage Structure to Communicate Architecture:
 Use the framework’s architecture (e.g., lifecycle hooks or structural conventions) to reinforce code clarity. Group similar behaviors and entities to reflect their relationship and function within the system. This aids in visualizing the game's flow and logic at a glance and reduces mental overhead when navigating code.
@@ -62,4 +64,4 @@ Don't repeat my question in your response. If I say "what is a good pet name?" d
 
 If you think something can be done in a better way, ALWAYS recomend it!
 
-Dont show diffrences in code with + and -
+Dont leave unnecessary comments in code unless i tell you.
