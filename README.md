@@ -5,9 +5,8 @@ This repository is a space for quick experiments, creative coding, and rapid pro
 ## 🎯 The Mission
 
 - 🎮 **Game** [`aetherionAscent/`](./aetherionAscent) ✅ — *AI agent enemy vs player platformer with real-time chat*
-- 🌐 **Web App** — *Full-stack web application*
+- 🌐 🤖 **AI Web App** — *Intelligent conversational web application with AI integration* 🚧 *WIP in private repo - deployed link coming soon*
 - 📱 **Mobile App** — *Native or cross-platform mobile app*
-- 🤖 **AI Chatbot** — *Intelligent conversational agent*
 - 🔗 **API** — *Backend service with endpoints*
 
 ## 🚀 Why Build All The Things?
