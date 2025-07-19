@@ -6,3 +6,5 @@ node_modules/
 # Ignore accidentally created root-level npm files
 /package.json
 /package-lock.json
+
+.DS_Store
